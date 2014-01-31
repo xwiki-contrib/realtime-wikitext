@@ -1,0 +1,5 @@
+{{info}}Example realtime session{{/info}}
+
+{{html clean="false"}}
+<textarea id="realtime" cols="0" rows="0" style="width:80%;height:400px"></textarea>
+{{/html}}
