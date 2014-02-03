@@ -1,4 +1,6 @@
 ;(function() {
+  if (XWiki.contextaction != 'edit') { return; }
+
   // VELOCITY
   var WEBSOCKET_URL = "$services.websocket.getURL('realtime')";
   var USER = "$services.model.resolveDocument($xcontext.getUser())";
@@ -13,7 +15,8 @@
   for (var path in PATHS) { PATHS[path] = PATHS[path].replace(/\.js$/, ''); }
   require.config({paths:PATHS});
 
-  if (XWiki.contextaction != 'edit') { return; }
+  // remove to debug
+  var console = { log:function() {} };
 
   require(['jquery', 'RTWiki_WebHome_realtime', 'RTWiki_WebHome_sharejs_textarea'],
           function($, Realtime, TextArea)
@@ -29,7 +32,10 @@
                                        'x',
                                        JSON.stringify(XWiki.currentDocument),
                                        initState);
-        socket.onmessage = function (evt) { realtime.message(evt.data); };
+        socket.onmessage = function (evt) {
+          console.log(evt.data);
+          realtime.message(evt.data);
+        };
         realtime.onMessage(function (message) { socket.send(message); });
 
         TextArea.attach($(elem)[0], realtime, initState);
@@ -53,11 +59,11 @@
 
     var editor = function () {
       var element = $('#xwikitext #content');
-      //var element = $('#realtime');
+
       if (!element.length) { return; }
 
       // WYSIWYG mode
-      if ($('#xwikitext .xRichTextEditorTabPanel').length) { return; }
+      if (typeof(Wysiwyg) === 'object' && Wysiwyg) { return; }
 
       var checked = (localStorage.getItem('realtimeDisallow') === true) ? "" : "checked";
 

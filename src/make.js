@@ -33,7 +33,7 @@ var obj = XWiki.model.classes.JavaScriptExtension.create();
 obj.setCode(XWiki.Tools.contentFromFile("src/objects/XWiki.JavaScriptExtension/code.js"));
 obj.setParse(true);
 obj.setUse('always');
-obj.setCache('long');
+obj.setCache('forbid');
 doc.addXObject(obj);
 
 // Add the document into the package.

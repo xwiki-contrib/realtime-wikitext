@@ -435,6 +435,7 @@ var Message = module.exports;
 var REGISTER     = Message.REGISTER     = 0;
 var REGISTER_ACK = Message.REGISTER_ACK = 1;
 var PATCH        = Message.PATCH        = 2;
+var DISCONNECT   = Message.DISCONNECT   = 3;
 
 var check = Message.check = function(msg) {
     Common.assert(msg.type === 'Message');
@@ -445,7 +446,10 @@ var check = Message.check = function(msg) {
     if (msg.messageType === PATCH) {
         Patch.check(msg.content);
         Common.assert(typeof(msg.lastMsgHash) === 'string');
-    } else if (msg.messageType === REGISTER || msg.messageType === REGISTER_ACK) {
+    } else if (msg.messageType === REGISTER
+        || msg.messageType === REGISTER_ACK
+        || msg.messageType === DISCONNECT)
+    {
         Common.assert(typeof(msg.lastMsgHash) === 'undefined');
         Common.assert(typeof(msg.content) === 'undefined');
     } else {
