@@ -7,7 +7,7 @@
   var ALLOW_REALTIME = "Allow Realtime Collaboration"; // TODO: translate
   var JOIN_REALTIME = "Join Realtime Collaborative Session";
   var PATHS = {
-    RTWiki_WebHome_realtime: "$doc.getAttachmentURL('realtime.js')",
+    RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
     RTWiki_WebHome_sharejs_textarea: "$doc.getAttachmentURL('sharejs_textarea.js')"
   };
   // END_VELOCITY
@@ -18,9 +18,10 @@
   // remove to debug
   var console = { log:function() {} };
 
-  require(['jquery', 'RTWiki_WebHome_realtime', 'RTWiki_WebHome_sharejs_textarea'],
-          function($, Realtime, TextArea)
+  require(['jquery', 'RTWiki_WebHome_sharejs_textarea', 'RTWiki_WebHome_chainpad'],
+          function($, TextArea)
   {
+    var ChainPad = window.ChainPad;
     var startWebSocket = function (elem) {
       console.log("Opening websocket");
       localStorage.removeItem('realtimeDisallow');
@@ -28,7 +29,7 @@
       var socket = new WebSocket(WEBSOCKET_URL);
       socket.onopen = function(evt) {
         var initState = $(elem).val();
-        var realtime = Realtime.create(USER + '-' + String(Math.random()).substring(2),
+        var realtime = ChainPad.create(USER + '-' + String(Math.random()).substring(2),
                                        'x',
                                        JSON.stringify(XWiki.currentDocument),
                                        initState);

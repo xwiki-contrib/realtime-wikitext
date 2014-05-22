@@ -1,23 +1,21 @@
-define(function() {
-var Realtime;
-
-(function(){function require(e,t,n){t||(t=0);var r=require.resolve(e,t),i=require.m[t][r];if(!i)throw new Error('failed to require "'+e+'" from '+n);if(i.c){t=i.c,r=i.m,i=require.m[t][i.m];if(!i)throw new Error('failed to require "'+r+'" from '+t)}return i.exports||(i.exports={},i.call(i.exports,i,i.exports,require.relative(r,t))),i.exports}require.resolve=function(e,t){var n=e,r=e+".js",i=e+"/index.js";return require.m[t][r]&&r?r:require.m[t][i]&&i?i:n},require.relative=function(e,t){return function(n){if("."!=n.charAt(0))return require(n,t,e);var r=e.split("/"),i=n.split("/");r.pop();for(var s=0;s<i.length;s++){var o=i[s];".."==o?r.pop():"."!=o&&r.push(o)}return require(r.join("/"),t,e)}};
-require.m = [];
-require.m[0] = {
+(function(){
+var r=function(){var e="function"==typeof require&&require,r=function(i,o,u){o||(o=0);var n=r.resolve(i,o),t=r.m[o][n];if(!t&&e){if(t=e(n))return t}else if(t&&t.c&&(o=t.c,n=t.m,t=r.m[o][t.m],!t))throw new Error('failed to require "'+n+'" from '+o);if(!t)throw new Error('failed to require "'+i+'" from '+u);return t.exports||(t.exports={},t.call(t.exports,t,t.exports,r.relative(n,o))),t.exports};return r.resolve=function(e,n){var i=e,t=e+".js",o=e+"/index.js";return r.m[n][t]&&t?t:r.m[n][o]&&o?o:i},r.relative=function(e,t){return function(n){if("."!=n.charAt(0))return r(n,t,e);var o=e.split("/"),f=n.split("/");o.pop();for(var i=0;i<f.length;i++){var u=f[i];".."==u?o.pop():"."!=u&&o.push(u)}return r(o.join("/"),t,e)}},r}();r.m = [];
+r.m[0] = {
 "Patch.js": function(module, exports, require){
-/* vim: set expandtab ts=4 sw=4: */
 /*
- * You may redistribute this program and/or modify it under the terms of
- * the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 2.1 of the License, or (at your option) any
- * later version.
+ * Copyright 2014 XWiki SAS
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 var Common = require('./Common');
@@ -167,7 +165,7 @@ var invert = Patch.invert = function (patch, doc)
     }
     for (var i = rpatch.operations.length-1; i >= 0; i--) {
         for (var j = i - 1; j >= 0; j--) {
-            rpatch.operations[i].offset += rpatch.operations[j].toDelete;
+            rpatch.operations[i].offset += rpatch.operations[j].toRemove;
             rpatch.operations[i].offset -= rpatch.operations[j].toInsert.length;
         }
     }
@@ -176,19 +174,20 @@ var invert = Patch.invert = function (patch, doc)
     return rpatch;
 };
 
-var simplify = Patch.simplify = function (patch, doc)
+var simplify = Patch.simplify = function (patch, doc, operationSimplify)
 {
     if (Common.PARANOIA) {
         check(patch);
         Common.assert(typeof(doc) === 'string');
         Common.assert(Sha.hex_sha256(doc) === patch.parentHash);
     }
+    operationSimplify = operationSimplify || Operation.simplify;
     var spatch = create(patch.parentHash);
     var newDoc = doc;
     var outOps = [];
     var j = 0;
     for (var i = patch.operations.length-1; i >= 0; i--) {
-        outOps[j] = Operation.simplify(patch.operations[i], newDoc);
+        outOps[j] = operationSimplify(patch.operations[i], newDoc, Operation.simplify);
         if (outOps[j]) {
             newDoc = Operation.apply(outOps[j], newDoc);
             j++;
@@ -268,64 +267,9 @@ var random = Patch.random = function (doc, opCount) {
     check(patch);
     return patch;
 };
-},
-"Common.js": function(module, exports, require){
-/* vim: set expandtab ts=4 sw=4: */
-/*
- * You may redistribute this program and/or modify it under the terms of
- * the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 2.1 of the License, or (at your option) any
- * later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-var Common = module.exports;
 
-Common.PARANOIA = false;
-
-/* throw errors over non-compliant messages which would otherwise be treated as invalid */
-Common.TESTING = true;
-
-var assert = Common.assert = function (expr) {
-    if (!expr) { throw new Error("Failed assertion"); }
-};
-
-var isUint = Common.isUint = function (integer) {
-    return (typeof(integer) === 'number') &&
-        (Math.floor(integer) === integer) &&
-        (integer >= 0);
-};
-
-var randomASCII = Common.randomASCII = function (length) {
-    var content = [];
-    for (var i = 0; i < length; i++) {
-        content[i] = String.fromCharCode( Math.floor(Math.random()*256) % 57 + 65 );
-    }
-    return content.join('');
-};
-
-var compareHashes = Common.compareHashes = function (hashA, hashB) {
-    while (hashA.length > 0) {
-        var numA = new Number('0x' + hashA.substring(0,8));
-        var numB = new Number('0x' + hashB.substring(0,8));
-        if (numA > numB) { return 1; }
-        if (numB > numA) { return -1; }
-        hashA = hashA.substring(8);
-        hashB = hashB.substring(8);
-    }
-    return 0;
-};
 },
 "SHA256.js": function(module, exports, require){
-(function (dependencies, module) {
-    module(exports);
-}(['exports'], function (window) {
 /* A JavaScript implementation of the Secure Hash Algorithm, SHA-256
  * Version 0.3 Copyright Angel Marin 2003-2004 - http://anmar.eu.org/
  * Distributed under the BSD License
@@ -405,24 +349,80 @@ var compareHashes = Common.compareHashes = function (hashA, hashB) {
     function hex_sha256(s){
         return binb2hex(core_sha256(str2binb(s),s.length * chrsz));
     }
-    window.hex_sha256 = hex_sha256;
+    module.exports.hex_sha256 = hex_sha256;
 }());
-}));
+
 },
-"Message.js": function(module, exports, require){
-/* vim: set expandtab ts=4 sw=4: */
+"Common.js": function(module, exports, require){
 /*
- * You may redistribute this program and/or modify it under the terms of
- * the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 2.1 of the License, or (at your option) any
- * later version.
+ * Copyright 2014 XWiki SAS
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+var Common = module.exports;
+
+Common.PARANOIA = false;
+
+/* throw errors over non-compliant messages which would otherwise be treated as invalid */
+Common.TESTING = true;
+
+var assert = Common.assert = function (expr) {
+    if (!expr) { throw new Error("Failed assertion"); }
+};
+
+var isUint = Common.isUint = function (integer) {
+    return (typeof(integer) === 'number') &&
+        (Math.floor(integer) === integer) &&
+        (integer >= 0);
+};
+
+var randomASCII = Common.randomASCII = function (length) {
+    var content = [];
+    for (var i = 0; i < length; i++) {
+        content[i] = String.fromCharCode( Math.floor(Math.random()*256) % 57 + 65 );
+    }
+    return content.join('');
+};
+
+var compareHashes = Common.compareHashes = function (hashA, hashB) {
+    while (hashA.length > 0) {
+        var numA = new Number('0x' + hashA.substring(0,8));
+        var numB = new Number('0x' + hashB.substring(0,8));
+        if (numA > numB) { return 1; }
+        if (numB > numA) { return -1; }
+        hashA = hashA.substring(8);
+        hashB = hashB.substring(8);
+    }
+    return 0;
+};
+
+},
+"Message.js": function(module, exports, require){
+/*
+ * Copyright 2014 XWiki SAS
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 var Common = require('./Common');
@@ -436,6 +436,8 @@ var REGISTER     = Message.REGISTER     = 0;
 var REGISTER_ACK = Message.REGISTER_ACK = 1;
 var PATCH        = Message.PATCH        = 2;
 var DISCONNECT   = Message.DISCONNECT   = 3;
+var PING         = Message.PING         = 4;
+var PONG         = Message.PONG         = 5;
 
 var check = Message.check = function(msg) {
     Common.assert(msg.type === 'Message');
@@ -446,6 +448,9 @@ var check = Message.check = function(msg) {
     if (msg.messageType === PATCH) {
         Patch.check(msg.content);
         Common.assert(typeof(msg.lastMsgHash) === 'string');
+    } else if (msg.messageType === PING || msg.messageType === PONG) {
+        Common.assert(typeof(msg.lastMsgHash) === 'undefined');
+        Common.assert(typeof(msg.content) === 'number');
     } else if (msg.messageType === REGISTER
         || msg.messageType === REGISTER_ACK
         || msg.messageType === DISCONNECT)
@@ -477,6 +482,8 @@ var toString = Message.toString = function (msg) {
     var content = '';
     if (msg.messageType === REGISTER) {
         content = JSON.stringify([REGISTER]);
+    } else if (msg.messageType === PING || msg.messageType === PONG) {
+        content = JSON.stringify([msg.messageType, msg.content]);
     } else if (msg.messageType === PATCH) {
         content = JSON.stringify([PATCH, Patch.toObj(msg.content), msg.lastMsgHash]);
     }
@@ -509,6 +516,8 @@ var fromString = Message.fromString = function (str) {
     var message;
     if (content[0] === PATCH) {
         message = create(userName, '', channelId, PATCH, Patch.fromObj(content[1]), content[2]);
+    } else if (content[0] === PING || content[0] === PONG) {
+        message = create(userName, '', channelId, content[0], content[1]);
     } else {
         message = create(userName, '', channelId, content[0]);
     }
@@ -529,20 +538,21 @@ var hashOf = Message.hashOf = function (msg) {
 };
 
 },
-"Realtime.js": function(module, exports, require){
-/* vim: set expandtab ts=4 sw=4: */
+"ChainPad.js": function(module, exports, require){
 /*
- * You may redistribute this program and/or modify it under the terms of
- * the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 2.1 of the License, or (at your option) any
- * later version.
+ * Copyright 2014 XWiki SAS
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 var Common = require('./Common');
@@ -551,21 +561,16 @@ var Patch = require('./Patch');
 var Message = require('./Message');
 var Sha = require('./SHA256');
 
-var Realtime = {};
+var ChainPad = {};
 
 // hex_sha256('')
 var EMPTY_STR_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+var ZERO =           '0000000000000000000000000000000000000000000000000000000000000000';
 
-var enterRealtime = function (realtime, func) {
+var enterChainPad = function (realtime, func) {
     return function () {
         if (realtime.failed) { return; }
-        try {
-            func.apply(null, arguments);
-        } catch (err) {
-            realtime.failed = true;
-            err.message += ' (' + realtime.userName + ')';
-            throw err;
-        }
+        func.apply(null, arguments);
     };
 };
 
@@ -577,7 +582,7 @@ var schedule = function (realtime, func, timeout) {
     if (!timeout) {
         timeout = Math.floor(Math.random() * 2 * realtime.avgSyncTime);
     }
-    var to = setTimeout(enterRealtime(realtime, function () {
+    var to = setTimeout(enterChainPad(realtime, function () {
         realtime.schedules.splice(realtime.schedules.indexOf(to), 1);
         func();
     }), timeout);
@@ -603,7 +608,8 @@ var sync = function (realtime) {
         return;
     }
 
-    realtime.uncommitted = Patch.simplify(realtime.uncommitted, realtime.authDoc);
+    realtime.uncommitted = Patch.simplify(
+        realtime.uncommitted, realtime.authDoc, realtime.config.operationSimplify);
 
     if (realtime.uncommitted.operations.length === 0) {
         //debug(realtime, "No data to sync to the server, sleeping");
@@ -611,12 +617,17 @@ var sync = function (realtime) {
         return;
     }
 
-    var msg = Message.create(realtime.userName,
+    var msg;
+    if (realtime.best === realtime.initialMessage) {
+        msg = realtime.initialMessage;
+    } else {
+        msg = Message.create(realtime.userName,
                              realtime.authToken,
                              realtime.channelId,
                              Message.PATCH,
                              realtime.uncommitted,
                              realtime.best.hashOf);
+    }
 
     var strMsg = Message.toString(msg);
 
@@ -635,6 +646,10 @@ var sync = function (realtime) {
     realtime.pending = {
         hash: hash,
         callback: function () {
+            if (realtime.initialMessage && realtime.initialMessage.hashOf === hash) {
+                debug(realtime, "initial Ack received ["+hash+"]");
+                realtime.initialMessage = null;
+            }
             unschedule(realtime, timeout);
             realtime.syncSchedule = schedule(realtime, function () { sync(realtime); }, 0);
         }
@@ -657,12 +672,37 @@ var getMessages = function (realtime) {
     });
 };
 
-var create = Realtime.create = function (userName, authToken, channelId, initialState) {
+var sendPing = function (realtime) {
+    realtime.pingSchedule = undefined;
+    realtime.lastPingTime = (new Date()).getTime();
+    var msg = Message.create(realtime.userName,
+                             realtime.authToken,
+                             realtime.channelId,
+                             Message.PING,
+                             realtime.lastPingTime);
+    realtime.onMessage(Message.toString(msg), function (err) {
+        if (err) { throw err; }
+    });
+};
+
+var onPong = function (realtime, msg) {
+    if (Common.PARANOIA) {
+        Common.assert(realtime.lastPingTime === Number(msg.content));
+    }
+    realtime.lastPingLag = (new Date()).getTime() - Number(msg.content);
+    realtime.lastPingTime = 0;
+    realtime.pingSchedule =
+        schedule(realtime, function () { sendPing(realtime); }, realtime.pingCycle);
+};
+
+var create = ChainPad.create = function (userName, authToken, channelId, initialState, config) {
 
     var realtime = {
-        type: 'Realtime',
+        type: 'ChainPad',
 
         authDoc: '',
+
+        config: config || {},
 
         userName: userName,
         authToken: authToken,
@@ -673,6 +713,7 @@ var create = Realtime.create = function (userName, authToken, channelId, initial
 
         uncommittedDocLength: initialState.length,
 
+        patchHandlers: [],
         opHandlers: [],
 
         onMessage: function (message, callback) {
@@ -698,29 +739,79 @@ var create = Realtime.create = function (userName, authToken, channelId, initial
         messages: {},
         messagesByParent: {},
 
-        rootMessage: null
+        rootMessage: null,
+
+        /**
+         * Set to the message which sets the initialState if applicable.
+         * Reset to null after the initial message has been successfully broadcasted.
+         */
+        initialMessage: null,
+
+        userListChangeHandlers: [],
+        userList: [],
+
+        /** The schedule() for sending pings. */
+        pingSchedule: undefined,
+
+        lastPingLag: 0,
+        lastPingTime: 0,
+
+        /** Average number of milliseconds between pings. */
+        pingCycle: 5000
     };
 
     if (Common.PARANOIA) {
         realtime.userInterfaceContent = initialState;
     }
 
-    var initialPatch = Patch.create(EMPTY_STR_HASH);
-    if (initialState !== '') {
-        var initialOp = Operation.create();
-        initialOp.toInsert = initialState;
-        Patch.addOperation(initialPatch, initialOp);
-        realtime.authDoc = Patch.apply(initialPatch, '');
+    var zeroPatch = Patch.create(EMPTY_STR_HASH);
+    zeroPatch.inverseOf = Patch.invert(zeroPatch, '');
+    zeroPatch.inverseOf.inverseOf = zeroPatch;
+    var zeroMsg = Message.create('', '', channelId, Message.PATCH, zeroPatch, ZERO);
+    zeroMsg.hashOf = Message.hashOf(zeroMsg);
+    zeroMsg.parentCount = 0;
+    realtime.messages[zeroMsg.hashOf] = zeroMsg;
+    (realtime.messagesByParent[zeroMsg.lastMessageHash] || []).push(zeroMsg);
+    realtime.rootMessage = zeroMsg;
+    realtime.best = zeroMsg;
+
+    if (initialState === '') {
+        realtime.uncommitted = Patch.create(zeroPatch.inverseOf.parentHash);
+        return realtime;
     }
-    initialPatch.inverseOf = Patch.invert(initialPatch, '');
-    var msg = Message.create('', '', channelId, Message.PATCH, initialPatch, '');
-    msg.lastMsgHash = '0000000000000000000000000000000000000000000000000000000000000000';
-    msg.hashOf = Message.hashOf(msg);
-    msg.parentCount = 0;
-    realtime.messages[msg.hashOf] = msg;
-    realtime.rootMessage = msg;
-    realtime.best = msg;
-    realtime.uncommitted = Patch.create(initialPatch.inverseOf.parentHash);
+
+    var initialOp = Operation.create();
+    initialOp.toInsert = initialState;
+    var initialStatePatch = Patch.create(zeroPatch.inverseOf.parentHash);
+    Patch.addOperation(initialStatePatch, initialOp);
+    initialStatePatch.inverseOf = Patch.invert(initialStatePatch, '');
+    initialStatePatch.inverseOf.inverseOf = initialStatePatch;
+
+    // flag this patch so it can be handled specially.
+    // Specifically, we never treat an initialStatePatch as our own,
+    // we let it be reverted to prevent duplication of data.
+    initialStatePatch.isInitialStatePatch = true;
+    initialStatePatch.inverseOf.isInitialStatePatch = true;
+
+    realtime.authDoc = initialState;
+    if (Common.PARANOIA) {
+        realtime.userInterfaceContent = initialState;
+    }
+    initialMessage = Message.create(realtime.userName,
+                                    realtime.authToken,
+                                    realtime.channelId,
+                                    Message.PATCH,
+                                    initialStatePatch,
+                                    zeroMsg.hashOf);
+    initialMessage.hashOf = Message.hashOf(initialMessage);
+    initialMessage.parentCount = 1;
+
+    realtime.messages[initialMessage.hashOf] = initialMessage;
+    (realtime.messagesByParent[initialMessage.lastMessageHash] || []).push(initialMessage);
+
+    realtime.best = initialMessage;
+    realtime.uncommitted = Patch.create(initialStatePatch.inverseOf.parentHash);
+    realtime.initialMessage = initialMessage;
 
     return realtime;
 };
@@ -729,8 +820,8 @@ var getParent = function (realtime, message) {
     return message.parent = message.parent || realtime.messages[message.lastMsgHash];
 };
 
-var check = Realtime.check = function(realtime) {
-    Common.assert(realtime.type === 'Realtime');
+var check = ChainPad.check = function(realtime) {
+    Common.assert(realtime.type === 'ChainPad');
     Common.assert(typeof(realtime.authDoc) === 'string');
 
     Patch.check(realtime.uncommitted, realtime.authDoc.length);
@@ -758,7 +849,7 @@ var check = Realtime.check = function(realtime) {
     Common.assert(doc === realtime.authDoc);
 };
 
-var doOperation = Realtime.doOperation = function (realtime, op) {
+var doOperation = ChainPad.doOperation = function (realtime, op) {
     if (Common.PARANOIA) {
         check(realtime);
         realtime.userInterfaceContent = Operation.apply(op, realtime.userInterfaceContent);
@@ -782,7 +873,7 @@ var parentCount = function (realtime, message) {
 };
 
 var applyPatch = function (realtime, author, patch) {
-    if (author === realtime.userName) {
+    if (author === realtime.userName && !patch.isInitialStatePatch) {
         var inverseOldUncommitted = Patch.invert(realtime.uncommitted, realtime.authDoc);
         var userInterfaceContent = Patch.apply(realtime.uncommitted, realtime.authDoc);
         if (Common.PARANOIA) {
@@ -817,7 +908,15 @@ var getBestChild = function (realtime, msg) {
     return best;
 };
 
-var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
+var userListChange = function (realtime) {
+    for (var i = 0; i < realtime.userListChangeHandlers.length; i++) {
+        var list = [];
+        list.push.apply(list, realtime.userList);
+        realtime.userListChangeHandlers[i](list);
+    }
+};
+
+var handleMessage = ChainPad.handleMessage = function (realtime, msgStr) {
 
     if (Common.PARANOIA) { check(realtime); }
     var msg = Message.fromString(msgStr);
@@ -826,9 +925,32 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
     if (msg.messageType === Message.REGISTER_ACK) {
         debug(realtime, "registered");
         realtime.registered = true;
+        sendPing(realtime);
         return;
     }
 
+    if (msg.messageType === Message.REGISTER) {
+        realtime.userList.push(msg.userName);
+        userListChange(realtime);
+        return;
+    }
+
+    if (msg.messageType === Message.PONG) {
+        onPong(realtime, msg);
+        return;
+    }
+
+    if (msg.messageType === Message.DISCONNECT) {
+        var idx = realtime.userList.indexOf(msg.userName);
+        if (Common.PARANOIA) { Common.assert(idx > -1); }
+        if (idx > -1) {
+            realtime.userList.splice(idx, 1);
+            userListChange(realtime);
+        }
+        return;
+    }
+
+    // otherwise it's a disconnect.
     if (msg.messageType !== Message.PATCH) { return; }
 
     msg.hashOf = Message.hashOf(msg);
@@ -836,6 +958,12 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
     if (realtime.pending && realtime.pending.hash === msg.hashOf) {
         realtime.pending.callback();
         realtime.pending = null;
+    }
+
+    if (realtime.messages[msg.hashOf]) {
+        debug(realtime, "Patch [" + msg.hashOf + "] is already known");
+        if (Common.PARANOIA) { check(realtime); }
+        return;
     }
 
     realtime.messages[msg.hashOf] = msg;
@@ -910,7 +1038,9 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
         return;
     }
 
-    if (!Patch.equals(Patch.simplify(patch, authDocAtTimeOfPatch), patch)) {
+    var simplePatch =
+        Patch.simplify(patch, authDocAtTimeOfPatch, realtime.config.operationSimplify);
+    if (!Patch.equals(simplePatch, patch)) {
         debug(realtime, "patch [" + msg.hashOf + "] can be simplified");
         if (Common.PARANOIA) { check(realtime); }
         if (Common.TESTING) { throw new Error(); }
@@ -921,8 +1051,8 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
     patch.inverseOf = Patch.invert(patch, authDocAtTimeOfPatch);
     patch.inverseOf.inverseOf = patch;
 
-
-    realtime.uncommitted = Patch.simplify(realtime.uncommitted, realtime.authDoc);
+    realtime.uncommitted = Patch.simplify(
+        realtime.uncommitted, realtime.authDoc, realtime.config.operationSimplify);
     var oldUserInterfaceContent = Patch.apply(realtime.uncommitted, realtime.authDoc);
     if (Common.PARANOIA) {
         Common.assert(oldUserInterfaceContent === realtime.userInterfaceContent);
@@ -944,7 +1074,8 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
     }
 
     uncommittedPatch = Patch.merge(uncommittedPatch, realtime.uncommitted);
-    uncommittedPatch = Patch.simplify(uncommittedPatch, oldUserInterfaceContent);
+    uncommittedPatch = Patch.simplify(
+        uncommittedPatch, oldUserInterfaceContent, realtime.config.operationSimplify);
 
     realtime.uncommittedDocLength += Patch.lengthChange(uncommittedPatch);
     realtime.best = msg;
@@ -957,78 +1088,101 @@ var handleMessage = Realtime.handleMessage = function (realtime, msgStr) {
     }
 
     // push the uncommittedPatch out to the user interface.
-    for (var i = uncommittedPatch.operations.length-1; i >= 0; i--) {
-        for (var j = 0; j < realtime.opHandlers.length; j++) {
-            realtime.opHandlers[j](uncommittedPatch.operations[i]);
+    for (var i = 0; i < realtime.patchHandlers.length; i++) {
+        realtime.patchHandlers[i](uncommittedPatch);
+    }
+    if (realtime.opHandlers.length) {
+        for (var i = uncommittedPatch.operations.length-1; i >= 0; i--) {
+            for (var j = 0; j < realtime.opHandlers.length; j++) {
+                realtime.opHandlers[j](uncommittedPatch.operations[i]);
+            }
         }
     }
     if (Common.PARANOIA) { check(realtime); }
 };
 
-module.exports.create = function (userName, authToken, channelId, initialState) {
+module.exports.create = function (userName, authToken, channelId, initialState, conf) {
     Common.assert(typeof(userName) === 'string');
     Common.assert(typeof(authToken) === 'string');
     Common.assert(typeof(channelId) === 'string');
     Common.assert(typeof(initialState) === 'string');
-    var realtime = Realtime.create(userName, authToken, channelId, initialState);
+    var realtime = ChainPad.create(userName, authToken, channelId, initialState, conf);
     return {
-        onRemove: enterRealtime(realtime, function (handler) {
+        onPatch: enterChainPad(realtime, function (handler) {
+            Common.assert(typeof(handler) === 'function');
+            realtime.patchHandlers.push(handler);
+        }),
+        onRemove: enterChainPad(realtime, function (handler) {
             Common.assert(typeof(handler) === 'function');
             realtime.opHandlers.unshift(function (op) {
-                if (op.toDelete > 0) { handler(op.offset, op.toDelete); }
+                if (op.toRemove > 0) { handler(op.offset, op.toRemove); }
             });
         }),
-        onInsert: enterRealtime(realtime, function (handler) {
+        onInsert: enterChainPad(realtime, function (handler) {
             Common.assert(typeof(handler) === 'function');
             realtime.opHandlers.push(function (op) {
                 if (op.toInsert.length > 0) { handler(op.offset, op.toInsert); }
             });
         }),
-        remove: enterRealtime(realtime, function (offset, numChars) {
+        remove: enterChainPad(realtime, function (offset, numChars) {
             var op = Operation.create();
             op.offset = offset;
-            op.toDelete = numChars;
+            op.toRemove = numChars;
             doOperation(realtime, op);
         }),
-        insert: enterRealtime(realtime, function (offset, str) {
+        insert: enterChainPad(realtime, function (offset, str) {
             var op = Operation.create();
             op.offset = offset;
             op.toInsert = str;
             doOperation(realtime, op);
         }),
-        onMessage: enterRealtime(realtime, function (handler) {
+        onMessage: enterChainPad(realtime, function (handler) {
             realtime.onMessage = handler;
         }),
-        message: enterRealtime(realtime, function (message) {
+        message: enterChainPad(realtime, function (message) {
             handleMessage(realtime, message);
         }),
-        start: enterRealtime(realtime, function () {
+        start: enterChainPad(realtime, function () {
             getMessages(realtime);
             realtime.syncSchedule = schedule(realtime, function () { sync(realtime); });
         }),
-        abort: enterRealtime(realtime, function () {
+        abort: enterChainPad(realtime, function () {
             realtime.schedules.forEach(function (s) { clearTimeout(s) });
         }),
-        sync: enterRealtime(realtime, function () {
+        sync: enterChainPad(realtime, function () {
             sync(realtime);
-        })
+        }),
+        getAuthDoc: function () { return realtime.authDoc; },
+        getUserDoc: function () { return Patch.apply(realtime.uncommitted, realtime.authDoc); },
+        onUserListChange: enterChainPad(realtime, function (handler) {
+            Common.assert(typeof(handler) === 'function');
+            realtime.userListChangeHandlers.push(handler);
+        }),
+        getLag: function () {
+            if (realtime.lastPingTime) {
+                return { waiting:1, lag: (new Date()).getTime() - realtime.lastPingTime };
+            }
+            return { waiting:0, lag: realtime.lastPingLag };
+        }
     };
 };
+
 },
 "Operation.js": function(module, exports, require){
-/* vim: set expandtab ts=4 sw=4: */
 /*
- * You may redistribute this program and/or modify it under the terms of
- * the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 2.1 of the License, or (at your option) any
- * later version.
+ * Copyright 2014 XWiki SAS
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 var Common = require('./Common');
@@ -1038,29 +1192,29 @@ var create = Operation.create = function () {
     return {
         type: 'Operation',
         offset: 0,
-        toDelete: 0,
+        toRemove: 0,
         toInsert: '',
     };
 };
 var check = Operation.check = function (op, docLength_opt) {
     Common.assert(op.type === 'Operation');
     Common.assert(Common.isUint(op.offset));
-    Common.assert(Common.isUint(op.toDelete));
+    Common.assert(Common.isUint(op.toRemove));
     Common.assert(typeof(op.toInsert) === 'string');
-    Common.assert(op.toDelete > 0 || op.toInsert.length > 0);
-    Common.assert(typeof(docLength_opt) !== 'number' || op.offset + op.toDelete <= docLength_opt);
+    Common.assert(op.toRemove > 0 || op.toInsert.length > 0);
+    Common.assert(typeof(docLength_opt) !== 'number' || op.offset + op.toRemove <= docLength_opt);
 };
 
 var toObj = Operation.toObj = function (op) {
     if (Common.PARANOIA) { check(op); }
-    return [op.offset,op.toDelete,op.toInsert];
+    return [op.offset,op.toRemove,op.toInsert];
 };
 
 var fromObj = Operation.fromObj = function (obj) {
     Common.assert(Array.isArray(obj) && obj.length === 3);
     var op = create();
     op.offset = obj[0];
-    op.toDelete = obj[1];
+    op.toRemove = obj[1];
     op.toInsert = obj[2];
     if (Common.PARANOIA) { check(op); }
     return op;
@@ -1070,7 +1224,7 @@ var clone = Operation.clone = function (op) {
     if (Common.PARANOIA) { check(op); }
     var out = create();
     out.offset = op.offset;
-    out.toDelete = op.toDelete;
+    out.toRemove = op.toRemove;
     out.toInsert = op.toInsert;
     return out;
 };
@@ -1084,20 +1238,20 @@ var apply = Operation.apply = function (op, doc)
     if (Common.PARANOIA) {
         check(op);
         Common.assert(typeof(doc) === 'string');
-        Common.assert(op.offset + op.toDelete <= doc.length);
+        Common.assert(op.offset + op.toRemove <= doc.length);
     }
-    return doc.substring(0,op.offset) + op.toInsert + doc.substring(op.offset + op.toDelete);
+    return doc.substring(0,op.offset) + op.toInsert + doc.substring(op.offset + op.toRemove);
 };
 
 var invert = Operation.invert = function (op, doc) {
     if (Common.PARANOIA) {
         check(op);
         Common.assert(typeof(doc) === 'string');
-        Common.assert(op.offset + op.toDelete <= doc.length);
+        Common.assert(op.offset + op.toRemove <= doc.length);
     }
     var rop = clone(op);
-    rop.toInsert = doc.substring(op.offset, op.offset + op.toDelete);
-    rop.toDelete = op.toInsert.length;
+    rop.toInsert = doc.substring(op.offset, op.offset + op.toRemove);
+    rop.toRemove = op.toInsert.length;
     return rop;
 };
 
@@ -1105,7 +1259,7 @@ var simplify = Operation.simplify = function (op, doc) {
     if (Common.PARANOIA) {
         check(op);
         Common.assert(typeof(doc) === 'string');
-        Common.assert(op.offset + op.toDelete <= doc.length);
+        Common.assert(op.offset + op.toRemove <= doc.length);
     }
     var rop = invert(op, doc);
     op = clone(op);
@@ -1114,22 +1268,22 @@ var simplify = Operation.simplify = function (op, doc) {
     var i;
     for (i = 0; i < minLen && rop.toInsert[i] === op.toInsert[i]; i++) ;
     op.offset += i;
-    op.toDelete -= i;
+    op.toRemove -= i;
     op.toInsert = op.toInsert.substring(i);
     rop.toInsert = rop.toInsert.substring(i);
 
     if (rop.toInsert.length === op.toInsert.length) {
         for (i = rop.toInsert.length-1; i >= 0 && rop.toInsert[i] === op.toInsert[i]; i--) ;
         op.toInsert = op.toInsert.substring(0, i+1);
-        op.toDelete = i+1;
+        op.toRemove = i+1;
     }
 
-    if (op.toDelete === 0 && op.toInsert.length === 0) { return null; }
+    if (op.toRemove === 0 && op.toInsert.length === 0) { return null; }
     return op;
 };
 
 var equals = Operation.equals = function (opA, opB) {
-    return (opA.toDelete === opB.toDelete
+    return (opA.toRemove === opB.toRemove
         && opA.toInsert === opB.toInsert
         && opA.offset === opB.offset);
 };
@@ -1137,7 +1291,7 @@ var equals = Operation.equals = function (opA, opB) {
 var lengthChange = Operation.lengthChange = function (op)
 {
     if (Common.PARANOIA) { check(op); }
-    return op.toInsert.length - op.toDelete;
+    return op.toInsert.length - op.toRemove;
 };
 
 /*
@@ -1153,17 +1307,17 @@ var merge = Operation.merge = function (oldOpOrig, newOpOrig) {
     var oldOp = clone(oldOpOrig);
     var offsetDiff = newOp.offset - oldOp.offset;
 
-    if (newOp.toDelete > 0) {
+    if (newOp.toRemove > 0) {
         var origOldInsert = oldOp.toInsert;
         oldOp.toInsert = (
              oldOp.toInsert.substring(0,offsetDiff)
-           + oldOp.toInsert.substring(offsetDiff + newOp.toDelete)
+           + oldOp.toInsert.substring(offsetDiff + newOp.toRemove)
         );
-        newOp.toDelete -= (origOldInsert.length - oldOp.toInsert.length);
-        if (newOp.toDelete < 0) { newOp.toDelete = 0; }
+        newOp.toRemove -= (origOldInsert.length - oldOp.toInsert.length);
+        if (newOp.toRemove < 0) { newOp.toRemove = 0; }
 
-        oldOp.toDelete += newOp.toDelete;
-        newOp.toDelete = 0;
+        oldOp.toRemove += newOp.toRemove;
+        newOp.toRemove = 0;
     }
 
     if (offsetDiff < 0) {
@@ -1184,7 +1338,7 @@ var merge = Operation.merge = function (oldOpOrig, newOpOrig) {
                         JSON.stringify([oldOpOrig,newOpOrig], null, '  '));
     }
 
-    if (oldOp.toInsert === '' && oldOp.toDelete === 0) {
+    if (oldOp.toInsert === '' && oldOp.toRemove === 0) {
         return null;
     }
     if (Common.PARANOIA) { check(oldOp); }
@@ -1202,7 +1356,7 @@ var shouldMerge = Operation.shouldMerge = function (oldOp, newOp) {
         check(newOp);
     }
     if (newOp.offset < oldOp.offset) {
-        return (oldOp.offset <= (newOp.offset + newOp.toDelete));
+        return (oldOp.offset <= (newOp.offset + newOp.toRemove));
     } else {
         return (newOp.offset <= (oldOp.offset + oldOp.toInsert.length));
     }
@@ -1224,7 +1378,7 @@ var rebase = Operation.rebase = function (oldOp, newOp) {
     }
     if (newOp.offset < oldOp.offset) { return newOp; }
     newOp = clone(newOp);
-    newOp.offset += oldOp.toDelete;
+    newOp.offset += oldOp.toRemove;
     newOp.offset -= oldOp.toInsert.length;
     return newOp;
 };
@@ -1245,28 +1399,28 @@ var transform = Operation.transform = function (toTransform, transformBy) {
     }
     if (toTransform.offset > transformBy.offset) {
         toTransform = clone(toTransform);
-        if (toTransform.offset > transformBy.offset + transformBy.toDelete) {
+        if (toTransform.offset > transformBy.offset + transformBy.toRemove) {
             // simple rebase
-            toTransform.offset -= transformBy.toDelete;
+            toTransform.offset -= transformBy.toRemove;
             toTransform.offset += transformBy.toInsert.length;
             return toTransform;
         }
         // goto the end, anything you deleted that they also deleted should be skipped.
         var newOffset = transformBy.offset + transformBy.toInsert.length;
-        toTransform.toDelete = 0; //-= (newOffset - toTransform.offset);
-        if (toTransform.toDelete < 0) { toTransform.toDelete = 0; }
+        toTransform.toRemove = 0; //-= (newOffset - toTransform.offset);
+        if (toTransform.toRemove < 0) { toTransform.toRemove = 0; }
         toTransform.offset = newOffset;
-        if (toTransform.toInsert.length === 0 && toTransform.toDelete === 0) {
+        if (toTransform.toInsert.length === 0 && toTransform.toRemove === 0) {
             return null;
         }
         return toTransform;
     }
-    if (toTransform.offset + toTransform.toDelete < transformBy.offset) {
+    if (toTransform.offset + toTransform.toRemove < transformBy.offset) {
         return toTransform;
     }
     toTransform = clone(toTransform);
-    toTransform.toDelete = transformBy.offset - toTransform.offset;
-    if (toTransform.toInsert.length === 0 && toTransform.toDelete === 0) {
+    toTransform.toRemove = transformBy.offset - toTransform.offset;
+    if (toTransform.toInsert.length === 0 && toTransform.toRemove === 0) {
         return null;
     }
     return toTransform;
@@ -1277,19 +1431,16 @@ var random = Operation.random = function (docLength) {
     Common.assert(Common.isUint(docLength));
     var op = create();
     op.offset = Math.floor(Math.random() * 100000000 % docLength) || 0;
-    op.toDelete = Math.floor(Math.random() * 100000000 % (docLength - op.offset)) || 0;
+    op.toRemove = Math.floor(Math.random() * 100000000 % (docLength - op.offset)) || 0;
     do {
         op.toInsert = Common.randomASCII(Math.floor(Math.random() * 20));
-    } while (op.toDelete === 0 && op.toInsert === '');
+    } while (op.toRemove === 0 && op.toInsert === '');
     if (Common.PARANOIA) { check(op); }
     return op;
 };
 
 module.exports = Operation;
-},
-};
-Realtime = require('Realtime.js');
-}());
 
-return Realtime;
-});
+}
+};
+App = r("ChainPad.js");}());
