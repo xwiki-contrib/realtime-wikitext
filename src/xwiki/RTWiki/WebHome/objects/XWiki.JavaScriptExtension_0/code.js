@@ -3,7 +3,7 @@
     var WEBSOCKET_URL = "$!services.websocket.getURL('realtime')";
     var USER = "$!xcontext.getUserReference()" || "xwiki:XWiki.XWikiGuest";
     var PRETTY_USER = "$xwiki.getUserName($xcontext.getUser(), false)";
-    var DEMO_MODE = "$request.getParameter('demoMode')" || false;
+    var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
     var MESSAGES = {
         allowRealtime: "Allow Realtime Collaboration", // TODO: translate
         joinSession: "Join Realtime Collaborative Session",
