@@ -1443,4 +1443,4 @@ module.exports = Operation;
 
 }
 };
-App = r("ChainPad.js");}());
+ChainPad = r("ChainPad.js");}());
