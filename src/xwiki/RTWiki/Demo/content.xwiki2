@@ -1,0 +1,15 @@
+{{velocity}}
+$xwiki.jsx.use("RTWiki.WebHome", {"demoMode":true})
+{{html clean="false"}}
+<div id="xwikieditcontentinner">
+#template("simpleedittoolbar.vm")
+$xwiki.getTextArea("Go ahead, type something, it's realtime collaboration!
+psst: try opening another browser to the same page for maximum wow")
+</div>
+##{{/html}} TODO(cjd): BUT WHY?!
+{{/velocity}}
+
+{{info}}
+This is only a demo so your work will not be saved.
+Register/log-in and edit a page normally for full realtime with auto-save.
+{{/info}}
