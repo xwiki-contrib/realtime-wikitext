@@ -4,6 +4,7 @@
     var USER = "$!xcontext.getUserReference()" || "xwiki:XWiki.XWikiGuest";
     var PRETTY_USER = "$xwiki.getUserName($xcontext.getUser(), false)";
     var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
+    var DEFAULT_LANGUAGE = "$xwiki.getXWikiPreference('default_language')";
     var MESSAGES = {
         allowRealtime: "Allow Realtime Collaboration", // TODO: translate
         joinSession: "Join Realtime Collaborative Session",
@@ -36,18 +37,23 @@
     // Not in edit mode?
     if (!DEMO_MODE && window.XWiki.contextaction !== 'edit') { return; }
 
-    var channel = JSON.stringify([
-        XWiki.currentWiki,
-        XWiki.currentSpace,
-        XWiki.currentPage,
-        'wiki'
-    ]);
-
     // Username === <USER>-encoded(<PRETTY_USER>)%2d<random number>
     var userName = USER + '-' + encodeURIComponent(PRETTY_USER + '-').replace(/-/g, '%2d') +
         String(Math.random()).substring(2);
 
-    require(['RTWiki_WebHome_rtwiki'], function (RTWiki) {
+    require(['jquery', 'RTWiki_WebHome_rtwiki'], function ($, RTWiki) {
+
+        var language = $('form#edit input[name="language"]').attr('value');
+        if (language === '' || language === 'default') { language = DEFAULT_LANGUAGE; }
+
+        var channel = JSON.stringify([
+            XWiki.currentWiki,
+            XWiki.currentSpace,
+            XWiki.currentPage,
+            language,
+            'wiki'
+        ]);
+
         RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE);
     });
 }());
