@@ -81,8 +81,7 @@ define([
                     user = messages.guest;
                 }
             } else {
-                user = userList[i].replace(/^.*-([^-]*)%2d[0-9]*$/,
-                                           function(all, one) {
+                user = userList[i].replace(/^.*-([^-]*)%2d[0-9]*$/, function(all, one) {
                     return decodeURIComponent(one);
                 });
             }
@@ -159,7 +158,80 @@ define([
         return $('meta[name="form_token"]').attr('content');
     };
 
-    var saveDocument = function (textArea, andThen) {
+    var getDocumentSection = function (sectionNum, andThen) {
+        debug("getting document section...");
+        $.ajax({
+            url: window.docediturl,
+            type: "POST",
+            async: true,
+            dataType: 'text',
+            data: {
+                xpage: 'editwiki',
+                section: ''+sectionNum
+            },
+            success: function (jqxhr) {
+                var content = $(jqxhr).find('#content');
+                if (!content || !content.length) {
+                    andThen(new Error("could not find content"));
+                } else {
+                    andThen(undefined, content.text());
+                }
+            },
+            error: function (jqxhr, err, cause) {
+                andThen(new Error(err));
+            }
+        });
+    };
+
+    var getIndexOfDocumentSection = function (documentContent, sectionNum, andThen) {
+        getDocumentSection(sectionNum, function (err, content) {
+            if (err) {
+                andThen(err);
+                return;
+            }
+            // This is screwed up, XWiki generates the section by rendering the XDOM back to
+            // XWiki2.0 syntax so it's not possible to find the actual location of a section.
+            // See: http://jira.xwiki.org/browse/XWIKI-10430
+            var idx = documentContent.indexOf(content);
+            if (idx === -1) {
+                content = content.split('\n')[0];
+                idx = documentContent.indexOf(content);
+            }
+            if (idx === -1) {
+                warn("Could not find section content..");
+            } else if (idx !== documentContent.lastIndexOf(content)) {
+                warn("Duplicate section content..");
+            } else {
+                andThen(undefined, idx);
+                return;
+            }
+            andThen(undefined, 0);
+        });
+    };
+
+    var seekToSection = function (textArea, andThen) {
+        var sect = window.location.hash.match(/^#!([\W\w]*&)?section=([0-9]+)/);
+        if (!sect || !sect[2]) {
+            andThen();
+            return;
+        }
+        var text = $(textArea).text();
+        getIndexOfDocumentSection(text, Number(sect[2]), function (err, idx) {
+            if (err) { andThen(err); return; }
+            if (idx === 0) {
+                warn("Attempted to seek to a section which could not be found");
+            } else {
+                var heightOne = $(textArea)[0].scrollHeight;
+                $(textArea).text(text.substring(idx));
+                var heightTwo = $(textArea)[0].scrollHeight;
+                $(textArea).text(text);
+                $(textArea).scrollTop(heightOne - heightTwo);
+            }
+            andThen();
+        })
+    };
+
+    var saveDocument = function (textArea, language, andThen) {
         debug("saving document...");
         $.ajax({
             url: window.docsaveurl,
@@ -167,21 +239,15 @@ define([
             async: true,
             dataType: 'text',
             data: {
-    //            parent: doc.parent || '',
-    //            title: doc.title || '',
                 xredirect: '',
-    //            language: 'en',
-    //            RequiresHTMLConversion: 'content',
-    //            content_syntax: doc.syntax || 'xwiki/2.1',
                 content: $(textArea).val(),
                 xeditaction: 'edit',
                 comment: 'Auto-Saved by Realtime Session',
                 action_saveandcontinue: 'Save & Continue',
-    //            syntaxId: doc.syntax || 'xwiki/2.1',
-    //            xhidden: 0,
                 minorEdit: 1,
                 ajax: true,
-                form_token: getFormToken()
+                form_token: getFormToken(),
+                language: language
             },
             success: function () {
                 andThen();
@@ -194,7 +260,7 @@ define([
         });
     };
 
-    var createSaver = function (socket, channel, myUserName, textArea, demoMode) {
+    var createSaver = function (socket, channel, myUserName, textArea, demoMode, language) {
         var timeOfLastSave = now();
         socket.onMessage.unshift(function (evt) {
             // get the content...
@@ -221,7 +287,7 @@ define([
             var toSave = $(textArea).val();
             if (lastSavedState === toSave) { return; }
             if (demoMode) { return; }
-            saveDocument(textArea, function () {
+            saveDocument(textArea, language, function () {
                 debug("saved document");
                 timeOfLastSave = now();
                 lastSavedState = toSave;
@@ -260,7 +326,8 @@ define([
                                    userName,
                                    channel,
                                    messages,
-                                   demoMode)
+                                   demoMode,
+                                   language)
     {
         debug("Opening websocket");
         localStorage.removeItem(LOCALSTORAGE_DISALLOW);
@@ -298,7 +365,7 @@ define([
 
             setAutosaveHiddenState(true);
 
-            createSaver(socket, channel, userName, textArea, demoMode);
+            createSaver(socket, channel, userName, textArea, demoMode, language);
 
             socket.onMessage.push(function (evt) {
                 debug(evt.data);
@@ -345,13 +412,28 @@ define([
         socket.close();
     };
 
-    var editor = function (websocketUrl, userName, messages, channel, demoMode) {
+    var checkSectionEdit = function () {
+        var href = window.location.href;
+        if (href.indexOf('#') === -1) { href += '#!'; }
+        var si = href.indexOf('section=');
+        if (si === -1 || si > href.indexOf('#')) { return false; }
+        var m = href.match(/([&]*section=[0-9]+)/)[1];
+        href = href.replace(m, '');
+        if (m[0] === '&') { m = m.substring(1); }
+        href = href + '&' + m;
+        window.location.href = href;
+        return true;
+    };
+
+    var editor = function (websocketUrl, userName, messages, channel, demoMode, language) {
         var contentInner = $('#xwikieditcontentinner');
         var textArea = contentInner.find('#content');
         if (!textArea.length) {
             warn("WARNING: Could not find textarea to bind to");
             return;
         }
+
+        if (checkSectionEdit()) { return; }
 
         setStyle();
 
@@ -376,7 +458,8 @@ define([
                                         userName,
                                         channel,
                                         messages,
-                                        demoMode);
+                                        demoMode,
+                                        language);
             } else if (socket) {
                 localStorage.setItem(LOCALSTORAGE_DISALLOW, 1);
                 stopWebSocket(socket);
@@ -384,15 +467,19 @@ define([
             }
         };
 
-        $('#'+allowRealtimeCbId).click(function () { checkboxClick(this.checked); });
-        checkboxClick(checked);
+        seekToSection(textArea, function (err) {
+            if (err) { throw err; }
+            $('#'+allowRealtimeCbId).click(function () { checkboxClick(this.checked); });
+            checkboxClick(checked);
+        });
     };
 
     var main = module.exports.main = function (websocketUrl,
                                                userName,
                                                messages,
                                                channel,
-                                               demoMode)
+                                               demoMode,
+                                               language)
     {
 
         if (!websocketUrl) {
@@ -426,7 +513,7 @@ define([
                 debug("Bound websocket");
             };
         } else if (window.XWiki.editor === 'wiki' || demoMode) {
-            editor(websocketUrl, userName, messages, channel, demoMode);
+            editor(websocketUrl, userName, messages, channel, demoMode, language);
         }
     };
 

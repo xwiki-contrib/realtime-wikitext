@@ -51,9 +51,9 @@
             XWiki.currentSpace,
             XWiki.currentPage,
             language,
-            'wiki'
+            'rtwiki'
         ]);
 
-        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE);
+        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, language);
     });
 }());
