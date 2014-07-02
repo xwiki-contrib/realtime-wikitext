@@ -73,6 +73,19 @@ var applyChange = function(ctx, oldval, newval) {
   }
 };
 
+/**
+ * Fix issues with textarea content which is different per-browser.
+ */
+var cannonicalize = function (content) {
+
+    var out = content.replace(/\r\n/g, '\n');
+
+    // TODO: debugging
+    window.rtwiki_sharejsTextarea_cannonicalContent = out;
+
+    return out;
+};
+
 // Attach a textarea to a document's editing context.
 //
 // The context is optional, and will be created from the document if its not
@@ -85,7 +98,8 @@ var attachTextarea = function(elem, ctx, originalState) {
   // called after the \r\n newlines are converted, and that check is quite
   // slow. So we also cache the string before conversion so we can do a quick
   // check incase the conversion isn't needed.
-  var prevvalue = originalState;
+  var content = originalState;
+  var cannonicalContent = cannonicalize(content);
 
   // Replace the content of the text area with newText, and transform the
   // current cursor by the specified function.
@@ -98,7 +112,8 @@ var attachTextarea = function(elem, ctx, originalState) {
     // the browser scrolls to the element.
     var scrollTop = elem.scrollTop;
     elem.value = newText;
-    prevvalue = elem.value; // Not done on one line so the browser can do newline conversion.
+    content = elem.value; // Not done on one line so the browser can do newline conversion.
+    cannonicalContent = cannonicalize(content);
     if (elem.scrollTop !== scrollTop) elem.scrollTop = scrollTop;
 
     // Setting the selection moves the cursor. We'll just have to let your
@@ -121,20 +136,16 @@ var attachTextarea = function(elem, ctx, originalState) {
       // of the region. Hence the Math.min.
       return pos < cursor ? cursor - Math.min(length, cursor - pos) : cursor;
     };
-
-    var prev = elem.value.replace(/\r\n/g, '\n');
-    replaceText(prev.slice(0, pos) + prev.slice(pos + length), transformCursor);
+    replaceText(cannonicalContent.slice(0, pos) + cannonicalContent.slice(pos + length),
+                transformCursor);
   });
 
   ctx.onInsert(function(pos, text) {
     var transformCursor = function(cursor) {
       return pos < cursor ? cursor + text.length : cursor;
     };
-
-    // Remove any window-style newline characters. Windows inserts these, and
-    // they mess up the generated diff.
-    var prev = elem.value.replace(/\r\n/g, '\n');
-    replaceText(prev.slice(0, pos) + text + prev.slice(pos), transformCursor);
+    replaceText(cannonicalContent.slice(0, pos) + text + cannonicalContent.slice(pos),
+                transformCursor);
   });
 
 
@@ -144,10 +155,11 @@ var attachTextarea = function(elem, ctx, originalState) {
   var genOp = function(event) {
     // In a timeout so the browser has time to propogate the event's changes to the DOM.
     setTimeout(function() {
-      if (elem.value !== prevvalue) {
-        var prev = prevvalue;
-        prevvalue = elem.value;
-        applyChange(ctx, prev, elem.value.replace(/\r\n/g, '\n'));
+      if (elem.value !== content) {
+        var prevCannonical = cannonicalContent;
+        content = elem.value;
+        cannonicalContent = cannonicalize(content);
+        applyChange(ctx, prevCannonical, cannonicalContent);
       }
     }, 0);
   };

@@ -338,6 +338,8 @@ define([
         socket.onMessage = [];
         var initState = $(textArea).val();
         var realtime = socket.realtime = ChainPad.create(userName, 'x', channel, initState);
+        // for debugging
+        window.rtwiki_chainpad = realtime;
 
         var isErrorState = false;
         var checkSocket = function () {
