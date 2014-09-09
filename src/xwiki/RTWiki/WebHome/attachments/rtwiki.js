@@ -260,6 +260,14 @@ define([
         });
     };
 
+    /**
+     * If we are editing a page which does not exist and creating it from a template
+     * then we should not auto-save the document otherwise it will cause RTWIKI-16
+     */
+    var createPageMode = function () {
+        return (window.location.href.indexOf('template=') !== -1);
+    };
+
     var createSaver = function (socket, channel, myUserName, textArea, demoMode, language) {
         var timeOfLastSave = now();
         socket.onMessage.unshift(function (evt) {
@@ -286,7 +294,7 @@ define([
             if (now() - timeOfLastSave < SAVE_DOC_TIME) { return; }
             var toSave = $(textArea).val();
             if (lastSavedState === toSave) { return; }
-            if (demoMode) { return; }
+            if (demoMode || createPageMode()) { return; }
             saveDocument(textArea, language, function () {
                 debug("saved document");
                 timeOfLastSave = now();
