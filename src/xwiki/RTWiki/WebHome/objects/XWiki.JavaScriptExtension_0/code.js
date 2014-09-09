@@ -15,6 +15,7 @@
         guests: "Guests",
         and: "and",
         editingWith: "Editing With:",
+        initializing: "Initializing...",
 
         lag: "Lag:"
     };

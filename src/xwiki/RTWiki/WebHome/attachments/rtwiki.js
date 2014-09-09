@@ -112,9 +112,6 @@ define([
         var id = uid();
         $(container).prepend('<div class="rtwiki-userlist" id="'+id+'"></div>');
         var listElement = $('#'+id);
-        realtime.onUserListChange(function (userList) {
-            updateUserList(myUserName, listElement, userList, messages);
-        });
         return listElement;
     };
 
@@ -364,14 +361,19 @@ define([
 
         socket.onopen = function (evt) {
 
+            var initializing = true;
+
+            var userListElement = createUserList(realtime,
+                                                 userName,
+                                                 toolbar.find('.rtwiki-toolbar-leftside'),
+                                                 messages);
+
+            userListElement.text(messages.initializing);
+
             createLagElement(socket,
                              realtime,
                              toolbar.find('.rtwiki-toolbar-rightside'),
                              messages);
-            createUserList(realtime,
-                           userName,
-                           toolbar.find('.rtwiki-toolbar-leftside'),
-                           messages);
 
             setAutosaveHiddenState(true);
 
@@ -383,7 +385,21 @@ define([
             });
             realtime.onMessage(function (message) { socket.send(message); });
 
-            TextArea.attach($(textArea)[0], realtime, initState);
+            $(textArea).attr("disabled", "disabled");
+
+            realtime.onUserListChange(function (userList) {
+                if (initializing && userList.indexOf(userName) > -1) {
+                    initializing = false;
+                    $(textArea).val(initState);
+                    TextArea.attach($(textArea)[0], realtime, initState);
+                    $(textArea).removeAttr("disabled");
+                }
+                if (!initializing) {
+                    updateUserList(userName, userListElement, userList, messages);
+                }
+            });
+
+
             debug("Bound websocket");
             realtime.start();
         };
