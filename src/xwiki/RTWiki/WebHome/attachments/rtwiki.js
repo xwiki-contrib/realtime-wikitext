@@ -291,7 +291,7 @@ define([
             if (now() - timeOfLastSave < SAVE_DOC_TIME) { return; }
             var toSave = $(textArea).val();
             if (lastSavedState === toSave) { return; }
-            if (demoMode || createPageMode()) { return; }
+            if (demoMode) { return; }
             saveDocument(textArea, language, function () {
                 debug("saved document");
                 timeOfLastSave = now();
@@ -458,6 +458,8 @@ define([
             warn("WARNING: Could not find textarea to bind to");
             return;
         }
+
+        if (createPageMode()) { return; }
 
         if (checkSectionEdit()) { return; }
 
