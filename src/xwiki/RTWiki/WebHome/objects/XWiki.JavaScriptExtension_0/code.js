@@ -23,7 +23,8 @@
         RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
         RTWiki_WebHome_sharejs_textarea: "$doc.getAttachmentURL('sharejs_textarea.js')",
         RTWiki_WebHome_rtwiki: "$doc.getAttachmentURL('rtwiki.js')",
-        RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false'
+        RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
+        RTWiki_GetKey: "$xwiki.getURL('RTWiki.GetKey','jsx')" + '?minify=false'
     };
     // END_VELOCITY
 
@@ -42,19 +43,11 @@
     var userName = USER + '-' + encodeURIComponent(PRETTY_USER + '-').replace(/-/g, '%2d') +
         String(Math.random()).substring(2);
 
-    require(['jquery', 'RTWiki_WebHome_rtwiki'], function ($, RTWiki) {
+    require(['jquery', 'RTWiki_WebHome_rtwiki', 'RTWiki_GetKey'], function ($, RTWiki, channel) {
 
         var language = $('form#edit input[name="language"]').attr('value');
         if (language === '' || language === 'default') { language = DEFAULT_LANGUAGE; }
 
-        var channel = JSON.stringify([
-            XWiki.currentWiki,
-            XWiki.currentSpace,
-            XWiki.currentPage,
-            language,
-            'rtwiki'
-        ]);
-
-        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, language);
+        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel.key+'-rtwiki', DEMO_MODE, language);
     });
 }());
