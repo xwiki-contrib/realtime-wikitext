@@ -390,8 +390,8 @@ define([
             realtime.onUserListChange(function (userList) {
                 if (initializing && userList.indexOf(userName) > -1) {
                     initializing = false;
-                    $(textArea).val(initState);
-                    TextArea.attach($(textArea)[0], realtime, initState);
+                    $(textArea).val(realtime.getUserDoc());
+                    TextArea.attach($(textArea)[0], realtime);
                     $(textArea).removeAttr("disabled");
                 }
                 if (!initializing) {

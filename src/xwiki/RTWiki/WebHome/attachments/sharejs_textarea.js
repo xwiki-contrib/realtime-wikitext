@@ -78,28 +78,17 @@ var applyChange = function(ctx, oldval, newval) {
  */
 var cannonicalize = function (content) {
 
-    var out = content.replace(/\r\n/g, '\n');
-
-    // TODO: debugging
-    window.rtwiki_sharejsTextarea_cannonicalContent = out;
-
-    return out;
+    return content.replace(/\r\n/g, '\n');
 };
 
 // Attach a textarea to a document's editing context.
 //
 // The context is optional, and will be created from the document if its not
 // specified.
-var attachTextarea = function(elem, ctx, originalState) {
+var attachTextarea = function(elem, ctx) {
 
-  // The current value of the element's text is stored so we can quickly check
-  // if its been changed in the event handlers. This is mostly for browsers on
-  // windows, where the content contains \r\n newlines. applyChange() is only
-  // called after the \r\n newlines are converted, and that check is quite
-  // slow. So we also cache the string before conversion so we can do a quick
-  // check incase the conversion isn't needed.
-  var content = originalState;
-  var cannonicalContent = cannonicalize(content);
+  // initial state will always fail the !== check in genop.
+  var content = {};
 
   // Replace the content of the text area with newText, and transform the
   // current cursor by the specified function.
@@ -113,7 +102,6 @@ var attachTextarea = function(elem, ctx, originalState) {
     var scrollTop = elem.scrollTop;
     elem.value = newText;
     content = elem.value; // Not done on one line so the browser can do newline conversion.
-    cannonicalContent = cannonicalize(content);
     if (elem.scrollTop !== scrollTop) elem.scrollTop = scrollTop;
 
     // Setting the selection moves the cursor. We'll just have to let your
@@ -136,30 +124,26 @@ var attachTextarea = function(elem, ctx, originalState) {
       // of the region. Hence the Math.min.
       return pos < cursor ? cursor - Math.min(length, cursor - pos) : cursor;
     };
-    replaceText(cannonicalContent.slice(0, pos) + cannonicalContent.slice(pos + length),
-                transformCursor);
+    replaceText(ctx.getUserDoc(), transformCursor);
   });
 
   ctx.onInsert(function(pos, text) {
     var transformCursor = function(cursor) {
       return pos < cursor ? cursor + text.length : cursor;
     };
-    replaceText(cannonicalContent.slice(0, pos) + text + cannonicalContent.slice(pos),
-                transformCursor);
+    replaceText(ctx.getUserDoc(), transformCursor);
   });
 
 
   // *** local -> remote changes
 
   // This function generates operations from the changed content in the textarea.
-  var genOp = function(event) {
+  var genOp = function() {
     // In a timeout so the browser has time to propogate the event's changes to the DOM.
     setTimeout(function() {
-      if (elem.value !== content) {
-        var prevCannonical = cannonicalContent;
-        content = elem.value;
-        cannonicalContent = cannonicalize(content);
-        applyChange(ctx, prevCannonical, cannonicalContent);
+      var val = elem.value;
+      if (val !== content) {
+        applyChange(ctx, ctx.getUserDoc(), cannonicalize(val));
       }
     }, 0);
   };
