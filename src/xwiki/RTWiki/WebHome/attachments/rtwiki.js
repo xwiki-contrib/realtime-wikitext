@@ -346,6 +346,13 @@ define([
         // for debugging
         window.rtwiki_chainpad = realtime;
 
+        // http://jira.xwiki.org/browse/RTWIKI-21
+        var onbeforeunload = window.onbeforeunload || function () { };
+        window.onbeforeunload = function (ev) {
+            socket.intentionallyClosing = true;
+            return onbeforeunload(ev);
+        };
+
         var isErrorState = false;
         var checkSocket = function () {
             if (socket.intentionallyClosing || isErrorState) { return false; }
