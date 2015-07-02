@@ -1,5 +1,7 @@
 # Realtime Collaborative Plain WikiText Editor
 
+[![XWiki labs logo](https://raw.githubusercontent.com/xwiki-labs/xwiki-labs-logo/master/projects/xwikilabs/xlabs-project.png "XWiki labs")](https://labs.xwiki.com/xwiki/bin/view/Main/WebHome)
+
 This editor makes use of the [ChainPad][chainpad] realtime editor engine and binds
 to a the XWiki plain WikiText editor. You can install it from the XWiki Extension Manager
 or build it manually using [node-xwikimodel][] to construct the .xar file.
