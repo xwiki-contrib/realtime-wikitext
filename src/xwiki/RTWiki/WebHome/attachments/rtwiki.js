@@ -537,7 +537,13 @@ define([
             socket.onopen = function (evt) {
                 socket.onmessage = function (evt) {
                     debug("Message! " + evt.data);
-                    if (evt.data !== ('0:' + channel.length + ':' + channel + '5:[1,0]')) {
+                    var regMsgEnd = '3:[0]';
+                    if (evt.data.indexOf(regMsgEnd) !== evt.data.length - regMsgEnd.length) {
+                        // Not a register message
+                    } else if (evt.data.indexOf(userName.length + ':' + userName) === 0) {
+                        // It's us registering
+                    } else {
+                        // Someone has registered
                         debug("hasActiveRealtimeSession");
                         socket.close();
                         hasActiveRealtimeSession();

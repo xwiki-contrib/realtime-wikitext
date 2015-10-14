@@ -51,9 +51,11 @@
     require(['jquery', 'RTWiki_WebHome_rtwiki', 'RTWiki_GetKey'], function ($, RTWiki, key) {
 
         if (key.error !== 'none') { throw new Error("channel key is not right: [" + key + "]"); }
-        var language = $('form#edit input[name="language"]').attr('value');
-        if (language === '' || language === 'default') { language = DEFAULT_LANGUAGE; }
-        var channel = key.key + language + '-rtwiki';
-        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, language);
+        // This is a hack to get the language of the document
+        // which is not strictly possible due to XWIKI-12685
+        var lang = $('form#edit input[name="language"]').attr('value') || $('html').attr('lang');
+        if (lang === '' || lang === 'default') { lang = DEFAULT_LANGUAGE; }
+        var channel = key.key + lang + '-rtwiki';
+        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, lang);
     });
 }());
