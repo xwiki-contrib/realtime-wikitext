@@ -8,24 +8,21 @@ or build it manually using [node-xwikimodel][] to construct the .xar file.
 install the [XWiki Realtime Backend][rtbackend] from the Extension Manager and build
 the .xar file as follows:
 
-    # first make sure you have an up-to-date version of node-xwikimodel
-    git clone git://github.com/xwiki-contrib/node-xwikimodel.git
-    cd node-xwikimodel
-    npm install -g
+    # First make sure you have an up-to-date version of xwiki-tools
+    npm install -g xwiki-tools
 
-
-    # then run the builder
-    ./do
+    # then build the xar with xargen
+    xargen
 
     # and import the resulting XAR file.
 
 Alternatively you can build and import in one operation using:
 
-    ./do --post Admin:admin@mywikidomain.name:8080/xwiki
+    xargen --post Admin:admin@mywikidomain.name:8080/xwiki
 
 Or generate a Maven compatible build using:
 
-    ./do --mvn
+    xargen --mvn
 
 
 [chainpad]: https://github.com/xwiki-contrib/chainpad
