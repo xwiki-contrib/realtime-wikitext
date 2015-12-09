@@ -228,6 +228,8 @@ define([
         })
     };
 
+
+    // http://jira.xwiki.org/browse/RTWIKI-29
     var saveDocument = function (textArea, language, andThen) {
         debug("saving document...");
         $.ajax({
@@ -276,7 +278,9 @@ define([
             var json = JSON.parse(content);
 
             // not an isaved message
+            // FIXME avoid clobbering
             if (json[0] !== MESSAGE_TYPE_ISAVED) { return; }
+            console.log("ISAVED!");
 
             timeOfLastSave = now();
             return false;
@@ -291,7 +295,11 @@ define([
             if (now() - timeOfLastSave < SAVE_DOC_TIME) { return; }
             var toSave = $(textArea).val();
             if (lastSavedState === toSave) { return; }
+            // demoMode lets the user preview realtime behaviour
+            // without actually requiring permission to save
             if (demoMode) { return; }
+
+            // FIXME don't clobber if someone has saved in non-realtime mode
             saveDocument(textArea, language, function () {
                 debug("saved document");
                 timeOfLastSave = now();
@@ -352,6 +360,8 @@ define([
             socket.intentionallyClosing = true;
             return onbeforeunload(ev);
         };
+
+        //alert("pewpewpew!");
 
         var isErrorState = false;
         var checkSocket = function () {
@@ -450,7 +460,7 @@ define([
         if (href.indexOf('#') === -1) { href += '#!'; }
         var si = href.indexOf('section=');
         if (si === -1 || si > href.indexOf('#')) { return false; }
-        var m = href.match(/([&]*section=[0-9]+)/)[1];
+        var m = href.match(/(&*section=[0-9]+)/)[1];
         href = href.replace(m, '');
         if (m[0] === '&') { m = m.substring(1); }
         href = href + '&' + m;
