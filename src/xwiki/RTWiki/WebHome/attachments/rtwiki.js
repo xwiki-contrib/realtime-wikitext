@@ -2,10 +2,12 @@ define([
   'jquery',
   'RTWiki_WebHome_sharejs_textarea',
   'RTWiki_ErrorBox',
-  'RTWiki_WebHome_chainpad'
+  'RTWiki_WebHome_chainpad',
+  'RTWiki_WebHome_diff'
 ], function($, TextArea, ErrorBox) {
 
     var ChainPad = window.ChainPad;
+    var Diff=window.diff;
     var module = { exports: {} };
 
     var LOCALSTORAGE_DISALLOW = 'rtwiki-disallow';
@@ -22,10 +24,10 @@ define([
     // How long to wait before determining that the connection is lost.
     var MAX_LAG_BEFORE_DISCONNECT = 30000;
 
-    var warn = function (x) { };
-    var debug = function (x) { };
+    var warn = function (x) {};
+    var debug = function (x) {};
     //debug = function (x) { console.log(x) };
-    warn = function (x) { console.log(x) };
+    //warn = function (x) { console.log(x) };
 
     var setStyle = function () {
         $('head').append([
@@ -228,6 +230,39 @@ define([
         })
     };
 
+    var threewayMerge = function(A,Original,B,cb){
+        var D=Diff.diff3Merge(A,Original,B),
+            C;
+        D.some(function(e){
+            C=e.conflict;
+            return C;
+        }),
+        cb&&cb(C,D);
+    };
+
+    var getLatestState = function (cb) {
+           $.ajax({
+            url: window.XWiki.currentDocument.getRestURL(),
+            type: 'GET',
+            success:function(d){
+                var $doc=$(d),
+                    result={};
+
+                    /*
+                        so far we're only using one attribute from the xml doc
+                        but the forEach supports easily adding more fields
+                        to the returned object, should that become necessary
+                    */
+                    [ 'content', ].forEach(function(k){
+                        result[k]=$doc.find(k).html();
+                    });
+                cb&&cb(result);
+            },
+            error: function(err){
+                warn(err);
+            },
+        });
+    };
 
     // http://jira.xwiki.org/browse/RTWIKI-29
     var saveDocument = function (textArea, language, andThen) {
@@ -278,9 +313,7 @@ define([
             var json = JSON.parse(content);
 
             // not an isaved message
-            // FIXME avoid clobbering
             if (json[0] !== MESSAGE_TYPE_ISAVED) { return; }
-            console.log("ISAVED!");
 
             timeOfLastSave = now();
             return false;
@@ -288,6 +321,7 @@ define([
 
         var lastSavedState = '';
         var to;
+
         var check = function () {
             if (to) { clearTimeout(to); }
             debug("createSaver.check");
@@ -299,17 +333,55 @@ define([
             // without actually requiring permission to save
             if (demoMode) { return; }
 
-            // FIXME don't clobber if someone has saved in non-realtime mode
-            saveDocument(textArea, language, function () {
-                debug("saved document");
-                timeOfLastSave = now();
-                lastSavedState = toSave;
-                var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, 0]);
-                socket.send('1:x' +
-                    myUserName.length + ':' + myUserName +
-                    channel.length + ':' + channel +
-                    saved.length + ':' + saved
-                );
+            // if we've made it this far, there have been *local* changes
+            // in which case we want to try to save to the server at some random interval
+            // when saving, however, we might overwrite changes
+            // from some other context. To avoid this we must check remote content
+
+            var save=function (toSave) {
+                /* save factors out the common elements across saves 
+                    and returns a callback to be used by SaveDocument 
+                */
+                return function () {
+                    debug("saved document");
+                    timeOfLastSave = now();
+                    lastSavedState = toSave;
+                    var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, 0]);
+                    socket.send('1:x' +
+                        myUserName.length + ':' + myUserName +
+                        channel.length + ':' + channel +
+                        saved.length + ':' + saved
+                    );
+                };
+            };
+
+            getLatestState(function (remoteState) {
+                if(remoteState.content === lastSavedState){
+                    // there are no changes to resolve, just save...
+                    saveDocument(textArea, language, save(toSave));
+                }else{
+                    // we have to merge...
+                    // remote state is likely to contain \r (carriage returns)
+                    // as sharejs actively removes these, and it will not be realtime...
+
+                    threewayMerge (toSave, lastSavedState||toSave, remoteState.content.replace(/\r\n/g,'\n'), function (e,out) {
+                        // threewayMerge is synchronous, so we don't need a callback
+                        // however everything else here is async and it's a nice api
+                        if(e){
+                            // there was a conflict that prevented us from merging
+                            // TODO we could use a more obvious error than 'warn'
+                            warn("Merge conflict detected!");
+                            warn(JSON.stringify(e,null,2));
+                        }else{
+                            // merge was successful, this was the result..
+                            toSave=out[0].ok.join('');
+                            saveDocument(textArea, language, save(toSave));
+
+                            // update the textarea, strip CR just to be careful
+                            $(textArea).val(toSave.replace(/\r\n/g,'\n'));
+                        }
+                    });
+                }
             });
         };
         check();
@@ -360,8 +432,6 @@ define([
             socket.intentionallyClosing = true;
             return onbeforeunload(ev);
         };
-
-        //alert("pewpewpew!");
 
         var isErrorState = false;
         var checkSocket = function () {
