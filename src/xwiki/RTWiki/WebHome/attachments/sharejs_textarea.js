@@ -169,6 +169,8 @@ var attachTextarea = function(elem, ctx) {
     }
   };
 
+  ctx.bumpSharejs = genOp;
+
   return ctx;
 };
 

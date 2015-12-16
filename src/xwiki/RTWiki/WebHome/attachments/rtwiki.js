@@ -16,7 +16,7 @@ define([
     var MESSAGE_TYPE_ISAVED = 5000;
 
     // how often to check if the document has been saved recently
-    var SAVE_DOC_CHECK_CYCLE = 5000;//20000;
+    var SAVE_DOC_CHECK_CYCLE = 20000;
 
     // how often to save the document
     var SAVE_DOC_TIME = 60000;
@@ -26,8 +26,8 @@ define([
 
     var warn = function (x) {};
     var debug = function (x) {};
-    debug = function (x) { console.log(x) };
-    warn = function (x) { console.log(x) };
+    // debug = function (x) { console.log(x) };
+    // warn = function (x) { console.log(x) };
 
     var setStyle = function () {
         $('head').append([
@@ -236,7 +236,7 @@ define([
         D.some(function(e){
             C=e.conflict;
             return C;
-        }),
+        });
         cb&&cb(C,D);
     };
 
@@ -253,17 +253,32 @@ define([
                         but the forEach supports easily adding more fields
                         to the returned object, should that become necessary
                     */
-                    [ 'content', ].forEach(function(k){
+                    [   'content',
+                        'version'
+                    ].forEach(function(k){
                         result[k]=$doc.find(k).html();
                     });
                 cb&&cb(result);
             },
             error: function(err){
                 warn(err);
+                cb&&cb(undefined);
             },
         });
     };
 
+    /*
+        determine the rest url of the current document, and fetch its content
+        after stripping carriage returns, determine whether the versions match
+        if they do not, attempt a threeway merge.
+        pass an error and the resulting string to a callback
+
+        @param content : the current state of our local version
+        @param commonState : the supposed parent of local and remote versions
+            (we can't know for sure, since wysiwyg sessions are only detectable
+            when they save)
+        @return void;
+    */
     var reconcileVersions = function (content, commonState, cb) {
         getLatestState(function (remoteState) {
             // check if remote content matches local content
@@ -319,7 +334,16 @@ define([
         });
     };
 
-    var makeMessage=function (toSave, cb) {
+    /*
+        @param socket
+        @param channel
+        @param myUserName
+        @param toSave : a string to pass
+        @param cb : a callback to be executed on save
+        @return an anonymous function to be used as a callback
+            for when we are actually ready for our content to be saved.
+    */
+    var makeMessage=function (socket, myUserName, channel, toSave, cb) {
         /* makeMessage factors out the common elements across saves 
             and returns a callback to be used by SaveDocument 
         */
@@ -375,19 +399,21 @@ define([
             // without actually requiring permission to save
             if (demoMode) { return; }
 
-            // if we've made it this far, there have been *local* changes
-            // in which case we want to try to save to the server at some random interval
-            // when saving, however, we might overwrite changes
-            // from some other context. To avoid this we must check remote content
-
+            /*
+                merge with remote versions just in case there have been wysiwyg
+                mode changes during our realtime session. It is still possible
+                to overwrite content if changes are saved in the brief period
+                between our merge and and save, but this is unlikely, and
+                unavoidable due to the nature of the problem.
+            */
             reconcileVersions(toSave, lastSavedState||toSave, function (e, out) {
-                if(e) {
+                if (e) {
                     ErrorBox.show("Merge conflict detected");
                     warn(JSON.stringify(e,null,2));
                 } else { 
                     console.log("Saving...");
                     toSave = out;
-                    saveDocument(textArea, language, makeMessage(toSave, function () {
+                    saveDocument(textArea, language, makeMessage(socket, channel, myUserName, toSave, function () {
                         timeOfLastSave = now();
                         lastSavedState = toSave;
                     }));
@@ -488,16 +514,39 @@ define([
             realtime.onUserListChange(function (userList) {
                 if (initializing && userList.indexOf(userName) > -1) {
                     initializing = false;
-                    $(textArea).val(realtime.getUserDoc());
+                    var userDoc=realtime.getUserDoc();
+                    var $textArea=$(textArea);
+                    $textArea.val(userDoc);
                     TextArea.attach($(textArea)[0], realtime);
-                    $(textArea).removeAttr("disabled");
-                    // TODO sync with server on authDoc complete...
+                    $textArea.removeAttr("disabled");
+                    /*
+                        once the authoritative document has been determined
+                        check whether it matches with the last saved version
+                        and merge it with the authoritative doc before the user
+                        has a chance to edit
+                    */
+                    reconcileVersions(userDoc, userDoc, function (e, out) {
+                        if (e) {
+                            // I see no reason why there would be an error...
+                            // nevertheless, let's provide some feedback if so.
+                            ErrorBox.show("Somebody saved this document outside of realtime, "+ 
+                                "and we could not merge automatically.");
+                            warn(JSON.stringify(e,null,2));
+                        } else {
+                            debug("Merging remote changes into live document");
+                            /* update the textarea such that the changes
+                                propogate to other realtime sessions if extant */
+                            $textArea.val(out);
+                            /* emit an event such that the newest changes
+                                propogate to other realtime sessions */
+                            realtime.bumpSharejs();
+                        }
+                    });
                 }
                 if (!initializing) {
                     updateUserList(userName, userListElement, userList, messages);
                 }
             });
-
 
             debug("Bound websocket");
             realtime.start();
