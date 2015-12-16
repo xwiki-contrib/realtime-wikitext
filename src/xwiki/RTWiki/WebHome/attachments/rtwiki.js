@@ -16,7 +16,7 @@ define([
     var MESSAGE_TYPE_ISAVED = 5000;
 
     // how often to check if the document has been saved recently
-    var SAVE_DOC_CHECK_CYCLE = 20000;
+    var SAVE_DOC_CHECK_CYCLE = 5000;//20000;
 
     // how often to save the document
     var SAVE_DOC_TIME = 60000;
@@ -26,8 +26,8 @@ define([
 
     var warn = function (x) {};
     var debug = function (x) {};
-    //debug = function (x) { console.log(x) };
-    //warn = function (x) { console.log(x) };
+    debug = function (x) { console.log(x) };
+    warn = function (x) { console.log(x) };
 
     var setStyle = function () {
         $('head').append([
@@ -264,6 +264,31 @@ define([
         });
     };
 
+    var reconcileVersions = function (content, commonState, cb) {
+        getLatestState(function (remoteState) {
+            // check if remote content matches local content
+            var remote=remoteState.content.replace(/\r\n/g,'\n');
+            if(remote === content){
+                console.log("No changes detected");
+                // there are no changes to resolve, just save...
+                cb&&cb(null,content);
+            }else{
+                // we have to merge...
+                threewayMerge (content, commonState, remote, function (e,out) {
+                    if(e){
+                        // there was an error, callbacks should handle it
+                        cb&&cb(e,null);
+                    }else{
+                        // merge was successful, this was the result..
+                        var result=out[0].ok.join('').replace(/\r\n/g,'\n');
+                        cb&&cb(null,result);
+                    }
+                });
+            }
+        });
+    };
+
+
     // http://jira.xwiki.org/browse/RTWIKI-29
     var saveDocument = function (textArea, language, andThen) {
         debug("saving document...");
@@ -293,6 +318,23 @@ define([
             }
         });
     };
+
+    var makeMessage=function (toSave, cb) {
+        /* makeMessage factors out the common elements across saves 
+            and returns a callback to be used by SaveDocument 
+        */
+        return function () {
+            debug("saved document");
+            var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, 0]);
+            cb&&cb();
+            socket.send('1:x' +
+                myUserName.length + ':' + myUserName +
+                channel.length + ':' + channel +
+                saved.length + ':' + saved
+            );
+        };
+    };
+
 
     /**
      * If we are editing a page which does not exist and creating it from a template
@@ -338,49 +380,18 @@ define([
             // when saving, however, we might overwrite changes
             // from some other context. To avoid this we must check remote content
 
-            var save=function (toSave) {
-                /* save factors out the common elements across saves 
-                    and returns a callback to be used by SaveDocument 
-                */
-                return function () {
-                    debug("saved document");
-                    timeOfLastSave = now();
-                    lastSavedState = toSave;
-                    var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, 0]);
-                    socket.send('1:x' +
-                        myUserName.length + ':' + myUserName +
-                        channel.length + ':' + channel +
-                        saved.length + ':' + saved
-                    );
-                };
-            };
-
-            getLatestState(function (remoteState) {
-                if(remoteState.content === lastSavedState){
-                    // there are no changes to resolve, just save...
-                    saveDocument(textArea, language, save(toSave));
-                }else{
-                    // we have to merge...
-                    // remote state is likely to contain \r (carriage returns)
-                    // as sharejs actively removes these, and it will not be realtime...
-
-                    threewayMerge (toSave, lastSavedState||toSave, remoteState.content.replace(/\r\n/g,'\n'), function (e,out) {
-                        // threewayMerge is synchronous, so we don't need a callback
-                        // however everything else here is async and it's a nice api
-                        if(e){
-                            // there was a conflict that prevented us from merging
-                            // TODO we could use a more obvious error than 'warn'
-                            warn("Merge conflict detected!");
-                            warn(JSON.stringify(e,null,2));
-                        }else{
-                            // merge was successful, this was the result..
-                            toSave=out[0].ok.join('');
-                            saveDocument(textArea, language, save(toSave));
-
-                            // update the textarea, strip CR just to be careful
-                            $(textArea).val(toSave.replace(/\r\n/g,'\n'));
-                        }
-                    });
+            reconcileVersions(toSave, lastSavedState||toSave, function (e, out) {
+                if(e) {
+                    ErrorBox.show("Merge conflict detected");
+                    warn(JSON.stringify(e,null,2));
+                } else { 
+                    console.log("Saving...");
+                    toSave = out;
+                    saveDocument(textArea, language, makeMessage(toSave, function () {
+                        timeOfLastSave = now();
+                        lastSavedState = toSave;
+                    }));
+                    $(textArea).val(toSave);
                 }
             });
         };
@@ -480,6 +491,7 @@ define([
                     $(textArea).val(realtime.getUserDoc());
                     TextArea.attach($(textArea)[0], realtime);
                     $(textArea).removeAttr("disabled");
+                    // TODO sync with server on authDoc complete...
                 }
                 if (!initializing) {
                     updateUserList(userName, userListElement, userList, messages);
