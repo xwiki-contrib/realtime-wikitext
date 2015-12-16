@@ -230,21 +230,35 @@ define([
         })
     };
 
+    /*
+        threewayMerge utilizes one function from ./diff.js (diff3Merge)
+        its first three arguments are strings, and its fourth is a function
+        following the js callback convention (error, body). If there were no
+        merge conflicts, the error will be falsey. The body is not a string,
+        but rather an array of patches.
+    */
     var threewayMerge = function(A,Original,B,cb){
         var D=Diff.diff3Merge(A,Original,B),
             C;
-        D.some(function(e){
+        D.some(function (e) {
             C=e.conflict;
             return C;
         });
         cb&&cb(C,D);
     };
 
+    /*
+        getLatestState polls the rest api of the document currently being edited.
+        it executes a callback taking a single argument in the case of either
+        an ajax success or error. In the case of a success, the callback
+        will provide an object consisting of the xml doc's content and version.
+        in the case of an error, it will return undefined.
+    */
     var getLatestState = function (cb) {
            $.ajax({
             url: window.XWiki.currentDocument.getRestURL(),
             type: 'GET',
-            success:function(d){
+            success:function (d) {
                 var $doc=$(d),
                     result={};
 
@@ -255,12 +269,12 @@ define([
                     */
                     [   'content',
                         'version'
-                    ].forEach(function(k){
+                    ].forEach(function (k) {
                         result[k]=$doc.find(k).html();
                     });
                 cb&&cb(result);
             },
-            error: function(err){
+            error: function (err) {
                 warn(err);
                 cb&&cb(undefined);
             },
@@ -302,7 +316,6 @@ define([
             }
         });
     };
-
 
     // http://jira.xwiki.org/browse/RTWIKI-29
     var saveDocument = function (textArea, language, andThen) {
@@ -359,7 +372,6 @@ define([
         };
     };
 
-
     /**
      * If we are editing a page which does not exist and creating it from a template
      * then we should not auto-save the document otherwise it will cause RTWIKI-16
@@ -386,6 +398,8 @@ define([
         });
 
         var lastSavedState = '';
+
+        // TODO use getLatestState to populate lastSavedState
         var to;
 
         var check = function () {
@@ -427,6 +441,7 @@ define([
         });
     };
 
+    // TODO provide UI hints to show whether the backend was available
     var isSocketDisconnected = function (socket, realtime) {
         return socket.readyState === socket.CLOSING ||
             socket.readyState === socket.CLOSED ||
@@ -520,7 +535,7 @@ define([
                     TextArea.attach($(textArea)[0], realtime);
                     $textArea.removeAttr("disabled");
                     /*
-                        once the authoritative document has been determined
+                        once the user document has been determined
                         check whether it matches with the last saved version
                         and merge it with the authoritative doc before the user
                         has a chance to edit
