@@ -31,6 +31,16 @@ page and continue in **non** realtime mode, simply close this box.
 
 )))
 
+(% class="rtwiki-unavailable" %)(((
+
+= Unavailable =
+
+The Realtime Wiki Editor's back end does not seem to be available. It is recommended that
+you reload the page and attempt to reconnect, or change into WYSIWYG mode, which does not
+rely on the realtime back end.
+
+)))
+
 (% class="rtwiki-debug" %)(((
 
 = Debug Log =
@@ -38,6 +48,15 @@ page and continue in **non** realtime mode, simply close this box.
 The following is a full history of this realtime session:
 
 {{html clean=false}}<textarea class="rtwiki-debug" cols="60" rows="10"></textarea>{{/html}}
+
+)))
+
+(% class="rtwiki-merge-error" %)(((
+
+= Merge Error =
+
+It looks like someone saved this document outside of the realtime session,
+and we were unable to merge your work with theirs.
 
 )))
 
