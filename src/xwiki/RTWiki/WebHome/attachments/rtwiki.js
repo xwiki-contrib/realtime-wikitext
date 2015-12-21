@@ -24,10 +24,12 @@ define([
     // How long to wait before determining that the connection is lost.
     var MAX_LAG_BEFORE_DISCONNECT = 30000;
 
+    var BACK_END_CONNECTION_TIMEOUT = 15000;
+
     var warn = function (x) {};
     var debug = function (x) {};
-    // debug = function (x) { console.log(x) };
-    // warn = function (x) { console.log(x) };
+    //debug = function (x) { console.log(x) };
+    //warn = function (x) { console.log(x) };
 
     var setStyle = function () {
         $('head').append([
@@ -295,15 +297,9 @@ define([
         @return void;
     */
     var reconcileVersions = function (content, commonState, cb) {
-        /*
-            FIXME make sure that remoteState actually exists
-            if this is the first time you have edited a document
-            until the first time that you save, it *will not*
-
-            undefined remoteState probably means 404, ie no such document
-        */
         getLatestState(function (remoteState) {
             // check if remote content matches local content
+            // undefined remoteState probably means 404, ie no such document
             if(typeof remoteState === 'undefined'){
                 debug("There are no previously saved versions of this document, "+
                     "merge is not necessary.");
@@ -413,8 +409,15 @@ define([
 
         var lastSavedState = '';
 
-        // http://jira.xwiki.org/browse/RTWIKI-28
-        // TODO use getLatestState to populate lastSavedState
+        // addresses http://jira.xwiki.org/browse/RTWIKI-28
+        getLatestState(function (remoteState) {
+            if (typeof remoteState !== 'undefined') {
+                // set lastSavedState such that we have a basis for comparisons
+                lastSavedState = remoteState.content;
+                // populating lastSavedState prevents unnecessary saves
+            }
+        });
+
         var to;
 
         var check = function () {
@@ -423,7 +426,10 @@ define([
             to = setTimeout(check, Math.random() * SAVE_DOC_CHECK_CYCLE);
             if (now() - timeOfLastSave < SAVE_DOC_TIME) { return; }
             var toSave = $(textArea).val();
-            if (lastSavedState === toSave) { return; }
+            if (lastSavedState === toSave) { 
+                debug("No changes made since last save. Avoiding unnecessary commits");
+                return;
+            }
             // demoMode lets the user preview realtime behaviour
             // without actually requiring permission to save
             if (demoMode) { return; }
@@ -437,10 +443,9 @@ define([
             */
             reconcileVersions(toSave, lastSavedState||toSave, function (e, out) {
                 if (e) {
-                    ErrorBox.show("Merge conflict detected");
+                    ErrorBox.show("merge-error");
                     warn(JSON.stringify(e,null,2));
                 } else { 
-                    debug("Saving...");
                     toSave = out;
                     saveDocument(textArea, language, makeMessage(socket, channel, myUserName, toSave, function () {
                         timeOfLastSave = now();
@@ -456,8 +461,6 @@ define([
         });
     };
 
-    // TODO provide UI hints to show whether the backend was available
-    // http://jira.xwiki.org/browse/RTBACKEND-12
     var isSocketDisconnected = function (socket, realtime) {
         return socket.readyState === socket.CLOSING ||
             socket.readyState === socket.CLOSED ||
@@ -486,6 +489,9 @@ define([
         localStorage.removeItem(LOCALSTORAGE_DISALLOW);
 
         var toolbar = createRealtimeToolbar(toolbarContainer);
+
+        // TODO figure out a way to fake the back end not being present so that
+        // we can properly test this bug.
         var socket = new WebSocket(websocketUrl);
         socket.onClose = [];
         socket.onMessage = [];
@@ -501,12 +507,17 @@ define([
             return onbeforeunload(ev);
         };
 
+        // TODO provide UI hints to show whether the backend was available
+        // http://jira.xwiki.org/browse/RTBACKEND-12
         var isErrorState = false;
         var checkSocket = function () {
             if (socket.intentionallyClosing || isErrorState) { return false; }
             if (isSocketDisconnected(socket, realtime)) {
                 realtime.abort();
                 socket.close();
+                // TODO differentiate between being disconnected
+                // and never having connected to begin with
+                // ie. make sure that we've gotten at least one ping response
                 ErrorBox.show('disconnected');
                 isErrorState = true;
                 return true;
@@ -514,7 +525,19 @@ define([
             return false;
         };
 
+        var hasConnected = false;
+
+        var backendTimeout = setTimeout(function () {
+            if (!hasConnected) {
+                // TODO differentiate between 'unavailable' and 'disconnected'
+                // because we never actually hit unavailable, it seems
+                ErrorBox.show('unavailable');
+            }
+        }, BACK_END_CONNECTION_TIMEOUT);
+
         socket.onopen = function (evt) {
+            hasConnected = true;
+            clearTimeout(backendTimeout);
 
             var initializing = true;
 
