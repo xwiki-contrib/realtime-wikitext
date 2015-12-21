@@ -274,6 +274,7 @@ define([
                     });
                 cb&&cb(result);
             },
+            /* if the REST XMLDoc does not exist, return undefined */
             error: function (err) {
                 warn(err);
                 cb&&cb(undefined);
@@ -294,11 +295,24 @@ define([
         @return void;
     */
     var reconcileVersions = function (content, commonState, cb) {
+        /*
+            FIXME make sure that remoteState actually exists
+            if this is the first time you have edited a document
+            until the first time that you save, it *will not*
+
+            undefined remoteState probably means 404, ie no such document
+        */
         getLatestState(function (remoteState) {
             // check if remote content matches local content
+            if(typeof remoteState === 'undefined'){
+                debug("There are no previously saved versions of this document, "+
+                    "merge is not necessary.");
+                cb&&cb(null,content);
+                return;
+            }
             var remote=remoteState.content.replace(/\r\n/g,'\n');
             if(remote === content){
-                console.log("No changes detected");
+                debug("No changes detected");
                 // there are no changes to resolve, just save...
                 cb&&cb(null,content);
             }else{
@@ -399,6 +413,7 @@ define([
 
         var lastSavedState = '';
 
+        // http://jira.xwiki.org/browse/RTWIKI-28
         // TODO use getLatestState to populate lastSavedState
         var to;
 
@@ -425,7 +440,7 @@ define([
                     ErrorBox.show("Merge conflict detected");
                     warn(JSON.stringify(e,null,2));
                 } else { 
-                    console.log("Saving...");
+                    debug("Saving...");
                     toSave = out;
                     saveDocument(textArea, language, makeMessage(socket, channel, myUserName, toSave, function () {
                         timeOfLastSave = now();
@@ -442,6 +457,7 @@ define([
     };
 
     // TODO provide UI hints to show whether the backend was available
+    // http://jira.xwiki.org/browse/RTBACKEND-12
     var isSocketDisconnected = function (socket, realtime) {
         return socket.readyState === socket.CLOSING ||
             socket.readyState === socket.CLOSED ||
