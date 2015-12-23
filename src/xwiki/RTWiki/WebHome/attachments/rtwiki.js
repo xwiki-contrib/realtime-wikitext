@@ -256,25 +256,13 @@ define([
         will provide an object consisting of the xml doc's content and version.
         in the case of an error, it will return undefined.
     */
-    var getLatestState = function (cb) {
-           $.ajax({
-            url: window.XWiki.currentDocument.getRestURL(),
+    // FIXME
+    getLatestState = function (cb) {
+        $.ajax({
+            url: window.XWiki.currentDocument.getRestURL()+'?media=json',
             type: 'GET',
             success:function (d) {
-                var $doc=$(d),
-                    result={};
-
-                    /*
-                        so far we're only using one attribute from the xml doc
-                        but the forEach supports easily adding more fields
-                        to the returned object, should that become necessary
-                    */
-                    [   'content',
-                        'version'
-                    ].forEach(function (k) {
-                        result[k]=$doc.find(k).html();
-                    });
-                cb&&cb(result);
+                cb&&cb(d);
             },
             /* if the REST XMLDoc does not exist, return undefined */
             error: function (err) {
@@ -324,6 +312,48 @@ define([
                     }
                 });
             }
+        });
+    };
+
+    getDocumentStatistics = function () {
+        var $html = $('html'),
+            fields = [
+                'wiki',
+                'space',
+                'page',
+                'version',
+                'document'
+            ],
+            result = {};
+        fields.forEach(function (field) {
+            result[field] = $html.data('xwiki-'+field);
+        });
+        return result;    
+    };
+
+    var ajaxMerge = function (textArea, cb) {
+        var href = location.href;
+        var url="http://localhost:8080/xwiki/bin/get/RTWiki/Ajax?outputSyntax=plain";
+
+        /* wiki, space, page, version, document */
+        var stats=getDocumentStatistics();
+
+        stats.content = $(textArea).val();
+
+        $.ajax({
+            url: url,
+            method: 'POST',
+            success: function (data) {
+                console.log(data);
+                cb(null,data);
+                console.log("MERGED!");
+                $(textArea).val(data.join("\n"));
+            },
+            data: stats,
+            error: function (err) {
+                console.error(err);
+                cb(err,null);
+            },
         });
     };
 
@@ -485,6 +515,10 @@ define([
                                    demoMode,
                                    language)
     {
+
+        Merger = function(cb){
+            ajaxMerge(textArea,cb);
+        };
         debug("Opening websocket");
         localStorage.removeItem(LOCALSTORAGE_DISALLOW);
 

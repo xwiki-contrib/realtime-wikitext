@@ -1,0 +1,31 @@
+{{velocity}}
+#set ($rtVersion = $request.get('version'))
+#set ($rtDocumentName = $request.get('document'))
+#set ($rtLiveContent = $request.get('content'))
+
+#set ($actualDocument=$xwiki.getDocument($rtDocumentName))
+#set ($actualContent = $actualDocument.getContent())
+#set ($originalDocument = $actualDocument.getDocumentRevision($rtVersion))
+#set ($rtRevision = $originalDocument.getContent())
+
+
+#set ($splitRevision=$rtRevision.replaceAll("\r","").split(" "))
+#set ($splitLiveContent=$rtLiveContent.replaceAll("\r","").split(" "))
+#set ($splitActualContent=$actualContent.replaceAll("\r","").split(" "))
+
+#set ($OList = [])
+#foreach($o in $splitRevision) #set($discard=$OList.add($o)) #end
+
+#set ($AList = [])
+#foreach($a in $splitLiveContent) #set($discard=$AList.add($a)) #end
+
+#set ($BList = [])
+#foreach($b in $splitActualContent) #set($discard=$BList.add($b)) #end
+
+#set ($merged=$services.diff.merge( $OList, $AList, $BList, null))
+
+$response.setContentType('application/json')
+$jsontool.serialize($merged.getMerged())
+{{/velocity}}
+
+

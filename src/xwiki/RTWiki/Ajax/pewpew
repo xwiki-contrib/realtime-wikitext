@@ -1,0 +1,69 @@
+{{velocity}}
+
+##set ( $oldDocArray= $jsontool.serialize($oldDoc.getContent().split(" ")) )
+
+##set ($myArray=$services.diff.merge(['world'],[$request.blah,'world'],$oldDocArray,null).getMerged())
+
+## $response.setContentType('application/json')
+## $oldDocArray
+
+#set ($rtVersion = $request.get('version'))
+#set ($rtDocumentName = $request.get('document'))
+#set ($rtLiveContent = $request.get('content'))
+
+#set ($actualDocument=$xwiki.getDocument($rtDocumentName))
+#set ($actualContent = $actualDocument.getContent())
+#set ($rtRevision = $actualDocument.getDocumentRevision($rtVersion))
+
+## $jsontool.serialize($rtRevision.getContent().split(" "))
+
+#set ($splitRevision=$rtRevision.getContent().split(" "))
+#set ($splitLiveContent=$rtLiveContent.split(" "))
+#set ($splitActualContent=$actualContent.split(" "))
+
+#*
+$splitRevision
+$splitLiveContent
+$splitActualContent
+$rtRevision
+*#
+
+
+#set ($OList = [])
+#set ($AList = [])
+#set ($Blist = [])
+
+#set($discard=$OList.addAll($splitRevision))
+#set($discard=$AList.addAll($splitLiveContent))
+#set($discard=$BList.addAll($splitActualContent))
+
+##set ($merged=$services.diff.merge( $splitRevision, $splitLiveContent, $splitActualContent, null))
+#set ($merged=$services.diff.merge( $OList, $AList, $BList, null))
+##set ($merged=$services.diff.merge( ['p','e','w'], ['b','o','w'], ['d','e','w'], null))
+
+$merged.getClass() ## class org.xwiki.diff.internal.DefaultMergeResult
+
+$merged.getMerged().getClass() ## class java.util.ArrayList
+
+$merged.getMerged()
+
+#*
+#set($list = [])
+
+#set($discard=$list.addAll($merged.getMerged()[0]))
+
+## $jsontool.serialize($list) ## class java.lang.String
+
+#  [ #foreach($x in $list[0][0])   $x ,  #end ]
+
+$list ## [[Ljava.lang.String;@b8fd45]
+
+$list.size() ## 1
+
+$list[0].getClass()  ## class java.lang.String
+
+$list[0] ## [Ljava.lang.String;@f3b838
+
+$list[0][0]
+*#
+{{/velocity}}
