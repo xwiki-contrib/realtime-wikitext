@@ -306,8 +306,8 @@ define([
                             TODO present dialog
                             * only if you have changed within last period
                             * kill dialog if received ISAVED
-                                + show message DONT WORRY BRO ITS OK
-                                    + document was merged
+                              + show message DONT WORRY BRO ITS OK
+                                + document was merged
                         */
                         cb(merged.error, merged);
                     } else {
@@ -395,6 +395,7 @@ define([
     var saveMessage=function (socket, channel, myUserName, toSave, version) {
         debug("saved document"); // RT_event-on_save
         /*
+            FIXME RTWIKI-34
             this may not have been working correctly until now.
             chainpad throws an error on unrecognized message types
                 chainpad.js line 461 
@@ -557,15 +558,25 @@ define([
                         return;
                     }
 
-                    /* TODO if(!data.merged) don't overwrite the textarea.val()
-                        http://jira.xwiki.org/browse/RTWIKI-43
-                        also, don't overwrite if there have been changes while merging
+                    /* TODO
+                        don't overwrite if there have been changes while merging
                         http://jira.xwiki.org/browse/RTWIKI-37
+                        changes made during an asynchronous merge are overwritten
                     */
-                    $(textArea).val(toSave);
+
+                    // http://jira.xwiki.org/browse/RTWIKI-34
+                    // Give Messages when merging
+                    // http://jira.xwiki.org/browse/RTWIKI-43
+                    // don't merge if latestCommonAncestor and lastSavedVersion have the same content
+                    if (data.merged) {
+                        $(textArea).val(toSave);
+                        // bump sharejs to force propogation. only if changed
+                        socket.realtime.bumpSharejs();
+                        // TODO show message informing the user which versions were merged...
+                    } else {
+                        lastSaved.messageElement.html("No merge was necessary");
+                    }
                     stopWatch(); // TASK 2
-                    // bump sharejs to force propogation.
-                    socket.realtime.bumpSharejs();
 
                     /* TODO data now contains the following attributes:
                         error
@@ -580,42 +591,49 @@ define([
                         halt everything if errorCount is non-zero
                             this needs resolution
                     */
-                    lastSaved.messageElement.html('Saving latest changes...');
-                    saveDocument(textArea, language, function () {
-                        stopWatch(); // TASK 3
-                        lastSaved.time = now();
-                        lastSaved.content = toSave;
-                        // get document version
 
-                        
-                        lastSaved.messageElement.html('Saved...');
-                        ajaxVersion(function (e, out) {
-                            stopWatch(); // TASK 4
+                    if (data.saveRequired) {
+                        lastSaved.messageElement.html('Saving latest changes...');
+                        saveDocument(textArea, language, function () {
+                            stopWatch(); // TASK 3
+                            lastSaved.time = now();
+                            lastSaved.content = toSave;
 
-                            if (!out) {
-                                warn(e);
-                                warn("No version reported from the version API");
-                            } else {
-                                // use output
-                                debug("Version bumped from "+lastSaved.version+
-                                    " to "+ out.version+".");
-                                lastSaved.version = out.version;
+                            // get document version
+                            lastSaved.messageElement.html('Saved...');
+                            ajaxVersion(function (e, out) {
+                                stopWatch(); // TASK 4
 
-                                // TODO these messages flash by too quickly to read
-                                lastSaved.messageElement.html('Saved: v'+out.version);
+                                if (!out) {
+                                    warn(e);
+                                    warn("No version reported from the version API");
+                                } else {
+                                    // use output
+                                    debug("Version bumped from "+lastSaved.version+
+                                        " to "+ out.version+".");
+                                    lastSaved.version = out.version;
 
-                                // push ISAVED message with version
-                                saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
-                                stopWatch(); // TASK 5
+                                    // TODO these messages flash by too quickly to read
+                                    lastSaved.messageElement.html('Saved: v'+out.version);
 
-                                // only report task durations if this is set
-                                RECORD_ASYNC_TIMES && times.reduce(function(a,b,i){
-                                    console.log("'TASK %s' took %s milliseconds",i,b-a)
-                                    return b;
-                                });
-                            }
+                                    // push ISAVED message with version
+                                    saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
+                                    stopWatch(); // TASK 5
+
+                                    // only report task durations if this is set
+                                    RECORD_ASYNC_TIMES && times.reduce(function(a,b,i){
+                                        console.log("'TASK %s' took %s milliseconds",i,b-a)
+                                        return b;
+                                    });
+                                }
+                            });
                         });
-                    });
+                    } else {
+                        // local content matches that of the latest version
+                        // TODO inform other clients, possibly via ISAVED
+                        // with current version as argument to reset lastSaved
+                        console.log("No save was necessary");
+                    }
                 }
             });
         };
