@@ -27,6 +27,10 @@
         RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
         RTWiki_GetKey: "$xwiki.getURL('RTWiki.GetKey','jsx')"
     };
+    var CONFIG = {
+        ajaxMergeUrl : "$xwiki.getURL('RTWiki.Ajax','get')",
+        ajaxVersionUrl : "$xwiki.getURL('RTWiki.Version','get')"
+    };
     // END_VELOCITY
 
     var wiki = encodeURIComponent(XWiki.currentWiki);
@@ -57,6 +61,6 @@
         var lang = $('form#edit input[name="language"]').attr('value') || $('html').attr('lang');
         if (lang === '' || lang === 'default') { lang = DEFAULT_LANGUAGE; }
         var channel = key.key + lang + '-rtwiki';
-        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, lang);
+        RTWiki.main(WEBSOCKET_URL, userName, MESSAGES, channel, DEMO_MODE, lang, CONFIG);
     });
 }());

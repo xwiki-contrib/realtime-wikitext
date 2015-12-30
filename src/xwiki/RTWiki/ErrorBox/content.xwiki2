@@ -51,12 +51,20 @@ The following is a full history of this realtime session:
 
 )))
 
-(% class="rtwiki-merge-error" %)(((
+(% class="rtwiki-merge" %)(((
 
 = Merge Error =
 
 It looks like someone saved this document outside of the realtime session,
 and we were unable to merge your work with theirs.
+
+)))
+
+(% class="rtwiki-parse" %)(((
+
+= Parse Error =
+
+We were unable to parse the server's response.
 
 )))
 

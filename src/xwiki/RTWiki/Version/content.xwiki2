@@ -1,0 +1,10 @@
+{{velocity}}
+## TODO report errors
+#set ($error = "false")
+#set ($name = $request.get('document'))
+#set ($currentDoc = $xwiki.getDocument($name))
+#set ($currentVersion = $currentDoc.getVersion())
+{
+    "version": "$currentVersion"
+}
+{{/velocity}}
