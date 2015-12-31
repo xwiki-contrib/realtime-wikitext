@@ -24,9 +24,6 @@ define([
     // How long to wait before determining that the connection is lost.
     var MAX_LAG_BEFORE_DISCONNECT = 30000;
 
-    // whether we should record the duration of each step in the merge process    
-    var RECORD_ASYNC_TIMES = true;
-
     // we can't avoid putting this in a very high scope, because lots of things
     // rely on it. Modify with extreme caution and avoid race conditions
     var mainConfig;
@@ -299,9 +296,12 @@ define([
             method: 'POST',
             success: function (data) {
                 try {
-                    var merged=JSON.parse(data);
-                    if (merged.error) {
-                        ErrorBox.show('merge');
+                    var merge=JSON.parse(data);
+                    var error = merge.conflicts &&
+                        merge.conflicts.length &&
+                        merge.conflicts[0].formattedMessage;
+                    if (error) {
+                        // ErrorBox.show('merge');
                         /*
                             TODO present dialog
                             * only if you have changed within last period
@@ -309,15 +309,19 @@ define([
                               + show message DONT WORRY BRO ITS OK
                                 + document was merged
                         */
-                        cb(merged.error, merged);
+                        // get the full error message, if it exists
+                        // better error
+                        //alert(error);
+                        merge.error=error;
+                        cb(error, merge);
                     } else {
                         // let the callback handle textarea writes
-                        cb(null,merged);
+                        cb(null,merge);
                     }
                 } catch (err) {
                     ErrorBox.show('parse');
                     warn(err);
-                    cb(err,data);
+                    cb(err, data);
                 }
             },
             data: stats,
@@ -419,6 +423,21 @@ define([
         return (window.location.href.indexOf('template=') !== -1);
     };
 
+    var presentMergeDialog = function(question, labelDefault, choiceDefault, labelAlternative, choiceAlternative){
+        var behave = {
+           onYes: choiceDefault,
+           onNo: choiceAlternative
+        };
+
+        var param = {
+            confirmationText: question,
+            yesButtonText: labelDefault,
+            noButtonText: labelAlternative
+        };
+
+        new XWiki.widgets.ConfirmationBox(behave, param);
+    };
+
     /*
         createSaver contains some of the more complicated logic in this script
         clients check for remote changes on random intervals
@@ -495,17 +514,8 @@ define([
             if (demoMode) { return; }
 
             /*
-                merge with remote versions just in case there have been wysiwyg
-                mode changes during our realtime session. It is still possible
-                to overwrite content if changes are saved in the brief period
-                between our merge and and save, but this is unlikely, and
-                unavoidable due to the nature of the problem.
-            */
-
-            /*
                 routine should be as follows:
                     1. merge
-                      + if changes have been made then postpone merge
                       + freezing is an API we should have
                       + merge will return an attibute 'conflicts' which should be zero
                         - else display a dialog
@@ -521,89 +531,46 @@ define([
                     5. push version to ISAVED
                       + chainpad is complaining
                       + if you receive ISAVED, drop everything
-
-                meanwhile:
-                    1. listen for ISAVED events and update lastSaved.version
-                    2. update lastSaved.content when you get an ISAVED message
-
-                    Task 1 took 69 milliseconds
-                    Task 2 took 0 milliseconds
-                    Task 3 took 227 milliseconds (saving)
-                    Task 4 took 44 milliseconds
-                    Task 5 took 2 milliseconds
-
-                        grand total: 342 ms (operating on a slow localhost)
             */
 
-            var times = [now()];
+            // post your current version to the server to see if it must merge
 
-            var stopWatch = function(){
-                if(RECORD_ASYNC_TIMES)
-                    times.push(now());
-            };
-
-            lastSaved.messageElement.html('Attempting merge...');
-            ajaxMerge(textArea, function (err, data) {
-                stopWatch(); // TASK 1
+            // remember the current state so you can check if it has changed.
+            var preMergeContent = $(textArea).val();
+            ajaxMerge(textArea, function (err, merge) {
                 if (err) { 
-                    warn(err);
-                    ErrorBox.show("merge-error");
-                } else {
-                    // data should be an object if there was no error
-                    toSave = data.content;
-
-                    if (toSave === lastSaved.content) {
-                        verbose("Skipping unnecessary save action");
-                        lastSaved.content = toSave;
+                    if (err === merge.error) { // there was a merge error
+                        // continue and handle elsewhere
+                        warn(err);
+                    } else {
+                        // it was some other kind of error... parsing?
+                        // complain and return. this means the script failed
+                        warn(err);
                         return;
                     }
+                }
 
-                    /* TODO
-                        don't overwrite if there have been changes while merging
-                        http://jira.xwiki.org/browse/RTWIKI-37
-                        changes made during an asynchronous merge are overwritten
-                    */
+                toSave = merge.content;
+                if (toSave === lastSaved.content) {
+                    verbose("Merging didn't result in a change.");
+                    return;
+                }
 
-                    // http://jira.xwiki.org/browse/RTWIKI-34
-                    // Give Messages when merging
-                    // http://jira.xwiki.org/browse/RTWIKI-43
-                    // don't merge if latestCommonAncestor and lastSavedVersion have the same content
-                    if (data.merged) {
-                        $(textArea).val(toSave);
-                        // bump sharejs to force propogation. only if changed
-                        socket.realtime.bumpSharejs();
-                        // TODO show message informing the user which versions were merged...
-                    } else {
-                        lastSaved.messageElement.html("No merge was necessary");
-                    }
-                    stopWatch(); // TASK 2
+                var $textArea = $(textArea);
 
-                    /* TODO data now contains the following attributes:
-                        error
-                        content
-                        merged
-                        saveRequired
-                        conflicts
-                        errorCount
-
-                        don't save if (!saveRequired)
-
-                        halt everything if errorCount is non-zero
-                            this needs resolution
-                    */
-
-                    if (data.saveRequired) {
+                // prepare the continuation that multiple branches will use
+                var continuation = function () {
+                    if (merge.saveRequired) {
                         lastSaved.messageElement.html('Saving latest changes...');
+
+                        toSave = $textArea.val();
                         saveDocument(textArea, language, function () {
-                            stopWatch(); // TASK 3
                             lastSaved.time = now();
                             lastSaved.content = toSave;
 
                             // get document version
                             lastSaved.messageElement.html('Saved...');
                             ajaxVersion(function (e, out) {
-                                stopWatch(); // TASK 4
-
                                 if (!out) {
                                     warn(e);
                                     warn("No version reported from the version API");
@@ -613,18 +580,10 @@ define([
                                         " to "+ out.version+".");
                                     lastSaved.version = out.version;
 
-                                    // TODO these messages flash by too quickly to read
                                     lastSaved.messageElement.html('Saved: v'+out.version);
 
                                     // push ISAVED message with version
                                     saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
-                                    stopWatch(); // TASK 5
-
-                                    // only report task durations if this is set
-                                    RECORD_ASYNC_TIMES && times.reduce(function(a,b,i){
-                                        console.log("'TASK %s' took %s milliseconds",i,b-a)
-                                        return b;
-                                    });
                                 }
                             });
                         });
@@ -632,8 +591,83 @@ define([
                         // local content matches that of the latest version
                         // TODO inform other clients, possibly via ISAVED
                         // with current version as argument to reset lastSaved
-                        console.log("No save was necessary");
+                        verbose("No save was necessary");
+                        lastSaved.content = toSave;
+                        ajaxVersion(function (e,out) {
+                            if (out) {
+                                debug("Triggering lastSaved refresh on remote clients");
+                                lastSaved.version = out.version;
+                                saveMessage(socket, channel, myUsersName, toSave, lastSaved.version);
+                            }
+                        });
                     }
+                };
+
+                // http://jira.xwiki.org/browse/RTWIKI-34
+                // Give Messages when merging
+                if (merge.merged) {
+                    // a merge took place
+                    if (merge.error) {
+                        // but there was a conflict we'll need to resolve.
+                        warn(merge.error)
+
+                        // halt the autosave cycle to give the user time
+                        // don't halt forever though, because you might
+                        // disconnect and hang
+
+                        presentMergeDialog(
+                            "A change was made to the document outside of the realtime session, "+
+                            "and the server had difficulty merging it with your version. "+
+                            "How would you like to handle this?",
+
+                            "Overwrite all changes with the current realtime version",
+                            function () {
+                                debug("User chose to use the realtime version!");
+                                continuation();
+                            },
+
+                            "Overwrite the realtime versions with the current remote version",
+                            function () { 
+                                debug("User chose to use the remote version!");
+
+                                $.ajax({
+                                    url: XWiki.currentDocument.getRestURL()+'?media=json',
+                                    method: 'GET',
+                                    dataType: 'json',
+                                    success: function (data) {
+                                        $textArea.val(data.content);
+                                        debug("Overwrote the realtime session's content with the latest saved state");
+                                        continuation();
+                                    },
+                                    error: function (err) {
+                                        warn("Encountered an error while fetching remote content");
+                                        warn(err);
+                                    }
+                                });
+                            }
+                        );
+                        return; // escape from the save process
+                        // when the merge dialog is answered it will continue
+                    } else {
+                        // there were no errors
+                        if (preMergeContent !== $textArea.val()) {
+                            /* but there have been changes since merging
+                                don't overwrite if there have been changes while merging
+                                http://jira.xwiki.org/browse/RTWIKI-37 */
+                            return; // try again in one cycle
+                        } else {
+                            // there were no errors or local changes push to the textarea
+                            $textArea.val(toSave);
+                            // bump sharejs to force propogation. only if changed
+                            socket.realtime.bumpSharejs();
+                            // TODO show message informing the user which versions were merged...
+
+                            // continue the save process
+                            continuation();
+                        }
+                    }
+                } else {
+                    lastSaved.messageElement.html("No merge was necessary");
                 }
             });
         };
@@ -719,7 +753,7 @@ define([
         });
     };
 
-    var trialSaveAndMerge = function (A, O, B, cb) {
+    window.trialSaveAndMerge = function (A, O, B, cb) {
         /*
             where O is the common ancestor between A and B
             and B is the text which will be preferred by the merge algorithm
@@ -760,6 +794,7 @@ define([
                 warn(e);
             } else {
                 var commonAncestor = out.version;
+                console.log(out);
                 // modify the page so that you can use the bumped version
                 // otherwise you'd have to reload the page
                 //$('[data-xwiki-version]').data('xwiki-version',commonAncestor);
@@ -767,7 +802,8 @@ define([
                 // do the same for 'A'
                 forceSave(A, function (e, out) {
                     var forkedVersion = out.version;
-                    debug("Performed a three way merge with version %s and %s", forkedVersion, commonAncestor);
+                    //console.log(out);
+                    debug("Performed a three way merge with version "+forkedVersion+" and " +commonAncestor);
 
                     // attempt to merge 'B' and 'A' with the version of 'O'
                     if (e) {
