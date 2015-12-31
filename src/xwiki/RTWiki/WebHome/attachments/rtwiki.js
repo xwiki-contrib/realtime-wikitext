@@ -301,17 +301,6 @@ define([
                         merge.conflicts.length &&
                         merge.conflicts[0].formattedMessage;
                     if (error) {
-                        // ErrorBox.show('merge');
-                        /*
-                            TODO present dialog
-                            * only if you have changed within last period
-                            * kill dialog if received ISAVED
-                              + show message DONT WORRY BRO ITS OK
-                                + document was merged
-                        */
-                        // get the full error message, if it exists
-                        // better error
-                        //alert(error);
                         merge.error=error;
                         cb(error, merge);
                     } else {
@@ -495,23 +484,13 @@ define([
             return false;
         });
 
-        // TimeOut
-        var to;
-
-        var check = function () {
-            if (to) { clearTimeout(to); }
-            verbose("createSaver.check");
-            to = setTimeout(check, Math.random() * SAVE_DOC_CHECK_CYCLE);
-            if (now() - lastSaved.time < SAVE_DOC_TIME) { return; }
+        var saveRoutine = function () {
             var toSave = $(textArea).val();
             if (lastSaved.content === toSave) { 
                 verbose("No changes made since last save. "+
                     "Avoiding unnecessary commits");
                 return;
             }
-            // demoMode lets the user preview realtime behaviour
-            // without actually requiring permission to save
-            if (demoMode) { return; }
 
             /*
                 routine should be as follows:
@@ -558,6 +537,17 @@ define([
 
                 var $textArea = $(textArea);
 
+                var bumpVersion = function (toSave, cb) {
+                    ajaxVersion(function (e, out) {
+                        if (out) {
+                            debug("Triggering lastSaved refresh on remote clients");
+                            lastSaved.version = out.version;
+                            saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
+                            cb && cb();
+                        }
+                    });
+                };
+
                 // prepare the continuation that multiple branches will use
                 var continuation = function () {
                     if (merge.saveRequired) {
@@ -570,36 +560,19 @@ define([
 
                             // get document version
                             lastSaved.messageElement.html('Saved...');
-                            ajaxVersion(function (e, out) {
-                                if (!out) {
-                                    warn(e);
-                                    warn("No version reported from the version API");
-                                } else {
-                                    // use output
-                                    debug("Version bumped from "+lastSaved.version+
-                                        " to "+ out.version+".");
-                                    lastSaved.version = out.version;
-
-                                    lastSaved.messageElement.html('Saved: v'+out.version);
-
-                                    // push ISAVED message with version
-                                    saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
-                                }
+                            bumpVersion(toSave, function(){ 
+                                debug("Version bumped from "+lastSaved.version+
+                                    " to "+ out.version+".");
+                                lastSaved.messageElement.html('Saved: v'+out.version);
                             });
                         });
                     } else {
                         // local content matches that of the latest version
-                        // TODO inform other clients, possibly via ISAVED
-                        // with current version as argument to reset lastSaved
                         verbose("No save was necessary");
                         lastSaved.content = toSave;
-                        ajaxVersion(function (e,out) {
-                            if (out) {
-                                debug("Triggering lastSaved refresh on remote clients");
-                                lastSaved.version = out.version;
-                                saveMessage(socket, channel, myUsersName, toSave, lastSaved.version);
-                            }
-                        });
+                        // inform other clients, possibly via ISAVED
+                        // with current version as argument to reset lastSaved
+                        bumpVersion(toSave);
                     }
                 };
 
@@ -637,7 +610,9 @@ define([
                                     success: function (data) {
                                         $textArea.val(data.content);
                                         debug("Overwrote the realtime session's content with the latest saved state");
-                                        continuation();
+                                        bumpVersion(function () {
+                                            lastSaved.messageElement.html('Overwrote realtime with remote version');
+                                        });
                                     },
                                     error: function (err) {
                                         warn("Encountered an error while fetching remote content");
@@ -670,6 +645,22 @@ define([
                     lastSaved.messageElement.html("No merge was necessary");
                 }
             });
+        }
+
+        // TimeOut
+        var to;
+
+        var check = function () {
+            if (to) { clearTimeout(to); }
+            verbose("createSaver.check");
+            to = setTimeout(check, Math.random() * SAVE_DOC_CHECK_CYCLE);
+            if (now() - lastSaved.time < SAVE_DOC_TIME) { return; }
+
+            // demoMode lets the user preview realtime behaviour
+            // without actually requiring permission to save
+            if (demoMode) { return; }
+
+            saveRoutine();
         };
         check();
         socket.onClose.push(function () {
