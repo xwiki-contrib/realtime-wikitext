@@ -36,9 +36,7 @@ define([
         hasModifications: false,
         // for future tracking of 'edited since last save'
         // only show the merge dialog to those who have edited
-        wasEditedLocally: false,
-        // for merge/save messages
-        messageElement: null
+        wasEditedLocally: false
     };
     
     var warn = function (x) {};
@@ -174,10 +172,30 @@ define([
         return $('#'+id);
     };
 
-    var createMergeMessageElement = function (container) {
+    var createMergeMessageElement = function (container,messages) {
         var id = uid();
         $(container).prepend( '<div class="rtwiki-merge" id="'+id+'"></div>');
         var $merges = lastSaved.messageElement = $('#'+id);
+
+        var timeout;
+
+        // drop a method into the lastSaved object which handles messages
+        lastSaved.mergeMessage = function (msg_type, msg) {
+            // keep multiple message sequences from fighting over resources
+            timeout && clearTimeout(timeout);
+
+            // set the message, handle all types
+            $merges.html(messages[msg_type]+msg);
+      
+            // clear the message box in five seconds
+            // 1.5s message fadeout time
+            timeout = setTimeout(function () {
+                $merges.fadeOut(1500, function () {
+                    $merges.html('');
+                    $merges.show();
+                });
+            },5000);
+        };
         return $merges;
     };
 
@@ -397,7 +415,8 @@ define([
             but it didn't seem to do so before...
         */
         var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, version]);
-        lastSaved.messageElement.html('saved v'+version);
+        // show(saved(version))
+        lastSaved.mergeMessage('saved', version);
         socket.send('1:x' +
             myUserName.length + ':' + myUserName +
             channel.length + ':' + channel +
@@ -447,10 +466,10 @@ define([
         During this process, a series of checks are made to reduce the number
         of unnecessary saves, as well as the number of unnecessary merges.
     */
-    var createSaver = function (socket, channel, myUserName, textArea, demoMode, language) {
+    var createSaver = function (socket, channel, myUserName, textArea, demoMode, language, messages) {
         lastSaved.time = now();
         var hasTripped = false;
-        var mergeDialogCurrentlyDisplay = false;
+        var mergeDialogCurrentlyDisplayed = false;
         socket.onMessage.unshift(function (evt) {
             // get the content...
             var chanIdx = evt.data.indexOf(channel);
@@ -463,6 +482,7 @@ define([
             if (json[0] !== MESSAGE_TYPE_ISAVED) { return; }
 
             // hack to ignore the rest of this block on load
+            // FIXME
             if (!hasTripped) {
                 hasTripped = true;
                 return;
@@ -474,7 +494,7 @@ define([
                 lastSaved.version = json[1];
 
                 // http://jira.xwiki.org/browse/RTWIKI-34
-                lastSaved.messageElement.html('remote save: v'+json[1]);
+                lastSaved.mergeMessage('savedRemote', json[1]);
 
                 // remember the state of the textArea when last saved
                 // so that we can avoid additional minor versions
@@ -520,7 +540,11 @@ define([
             var preMergeContent = $(textArea).val();
             ajaxMerge(textArea, function (err, merge) {
                 if (err) { 
-                    if (err === merge.error) { // there was a merge error
+                    if (typeof merge === 'undefined') {
+                        warn("The ajax merge API did not return an object. Something went wrong");
+                        warn(err);
+                        return;
+                    } else if (err === merge.error) { // there was a merge error
                         // continue and handle elsewhere
                         warn(err);
                     } else {
@@ -545,7 +569,7 @@ define([
                             debug("Triggering lastSaved refresh on remote clients");
                             lastSaved.version = out.version;
                             saveMessage(socket, channel, myUserName, toSave, lastSaved.version);
-                            cb && cb();
+                            cb && cb(out);
                         }
                     });
                 };
@@ -553,19 +577,19 @@ define([
                 // prepare the continuation that multiple branches will use
                 var continuation = function () {
                     if (merge.saveRequired) {
-                        lastSaved.messageElement.html('Saving latest changes...');
-
                         toSave = $textArea.val();
                         saveDocument(textArea, language, function () {
                             lastSaved.time = now();
                             lastSaved.content = toSave;
 
+                            // cache this because bumpVersion will increment it
+                            var lastVersion = lastSaved.version;
+
                             // get document version
-                            lastSaved.messageElement.html('Saved...');
-                            bumpVersion(toSave, function(){ 
-                                debug("Version bumped from "+lastSaved.version+
+                            bumpVersion(toSave, function(out){ 
+                                debug("Version bumped from " + lastVersion +
                                     " to "+ out.version+".");
-                                lastSaved.messageElement.html('Saved: v'+out.version);
+                                lastSaved.mergeMessage('saved',out.version);
                             });
                         });
                     } else {
@@ -591,12 +615,11 @@ define([
                         // disconnect and hang
 
                         mergeDialogCurrentlyDisplayed = true;
+                        // FIXME this should all be translatable...
                         presentMergeDialog(
-                            "A change was made to the document outside of the realtime session, "+
-                            "and the server had difficulty merging it with your version. "+
-                            "How would you like to handle this?",
+                            messages.mergeDialog_prompt,
 
-                            "Overwrite all changes with the current realtime version",
+                            messages.mergeDialog_keepRealtime,
                             function () {
                                 debug("User chose to use the realtime version!");
                                 // unset the merge dialog flag
@@ -604,7 +627,7 @@ define([
                                 continuation();
                             },
 
-                            "Overwrite the realtime versions with the current remote version",
+                            messages.mergeDialog_keepRemote,
                             function () { 
                                 debug("User chose to use the remote version!");
                                 // unset the merge dialog flag
@@ -618,7 +641,7 @@ define([
                                         $textArea.val(data.content);
                                         debug("Overwrote the realtime session's content with the latest saved state");
                                         bumpVersion(function () {
-                                            lastSaved.messageElement.html('Overwrote realtime with remote version');
+                                            lastSaved.mergeMessage('merge overwrite','');
                                         });
                                     },
                                     error: function (err) {
@@ -649,7 +672,8 @@ define([
                         }
                     }
                 } else {
-                    lastSaved.messageElement.html("No merge was necessary");
+                    // no merge was necessary, but you might still have to save
+                    continuation();
                 }
             });
         }
@@ -707,7 +731,7 @@ define([
             saveDocument($textarea[0], mainConfig.language, function (saveErr) {
                 if (saveErr) {
                     // report your error
-                    console.error(saveErr);
+                    warn(saveErr);
                     cb(saveErr);
                 } else {
                     cb(null);
@@ -738,7 +762,7 @@ define([
         // save 'O' so there is guaranteed to be a base version
         simpleSave(O, function (e) {
             if (e) {
-                console.error(e);
+                warn(e);
                 cb("failed on first save");
             } else {
                 // save 'A' so it's guaranteed to threeway merge
@@ -794,7 +818,7 @@ define([
                 warn(e);
             } else {
                 var commonAncestor = out.version;
-                console.log(out);
+                debug(out);
                 // modify the page so that you can use the bumped version
                 // otherwise you'd have to reload the page
                 //$('[data-xwiki-version]').data('xwiki-version',commonAncestor);
@@ -896,11 +920,11 @@ define([
                              toolbar.find('.rtwiki-toolbar-rightside'),
                              messages);
 
-            createMergeMessageElement(toolbar.find('.rtwiki-toolbar-rightside'));
+            createMergeMessageElement(toolbar.find('.rtwiki-toolbar-rightside'),messages);
 
             setAutosaveHiddenState(true);
 
-            createSaver(socket, channel, userName, textArea, demoMode, language);
+            createSaver(socket, channel, userName, textArea, demoMode, language, messages);
 
             socket.onMessage.push(function (evt) {
                 verbose(evt.data);
