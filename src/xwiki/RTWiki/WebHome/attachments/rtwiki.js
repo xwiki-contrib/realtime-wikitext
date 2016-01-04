@@ -260,13 +260,14 @@ define([
         })
     };
 
-    /* retrieves attributes about the local document for the purposes of ajax merge */
+    /* retrieves attributes about the local document for the purposes of ajax merge
+        just data-xwiki-document and lastSaved.version
+    */
+
     var getDocumentStatistics = function () {
         var $html = $('html'),
             fields = [
-                'wiki',
-                'space',
-                'page',
+// 'wiki', 'space', 'page',
                 'document'
             ],
             result = {};
@@ -286,7 +287,7 @@ define([
     var ajaxMerge = function (textArea, cb) {
         var url = mainConfig.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
 
-        /* wiki, space, page, version, document */
+        /* version, document */
         var stats=getDocumentStatistics();
 
         stats.content = $(textArea).val();
@@ -449,6 +450,7 @@ define([
     var createSaver = function (socket, channel, myUserName, textArea, demoMode, language) {
         lastSaved.time = now();
         var hasTripped = false;
+        var mergeDialogCurrentlyDisplay = false;
         socket.onMessage.unshift(function (evt) {
             // get the content...
             var chanIdx = evt.data.indexOf(channel);
@@ -588,6 +590,7 @@ define([
                         // don't halt forever though, because you might
                         // disconnect and hang
 
+                        mergeDialogCurrentlyDisplayed = true;
                         presentMergeDialog(
                             "A change was made to the document outside of the realtime session, "+
                             "and the server had difficulty merging it with your version. "+
@@ -596,12 +599,16 @@ define([
                             "Overwrite all changes with the current realtime version",
                             function () {
                                 debug("User chose to use the realtime version!");
+                                // unset the merge dialog flag
+                                mergeDialogCurrentlyDisplayed = false;
                                 continuation();
                             },
 
                             "Overwrite the realtime versions with the current remote version",
                             function () { 
                                 debug("User chose to use the remote version!");
+                                // unset the merge dialog flag
+                                mergeDialogCurrentlyDisplayed = false;
 
                                 $.ajax({
                                     url: XWiki.currentDocument.getRestURL()+'?media=json',
@@ -655,6 +662,8 @@ define([
             verbose("createSaver.check");
             to = setTimeout(check, Math.random() * SAVE_DOC_CHECK_CYCLE);
             if (now() - lastSaved.time < SAVE_DOC_TIME) { return; }
+            // avoid queuing up multiple merge dialogs
+            if (mergeDialogCurrentlyDisplayed) { return; }
 
             // demoMode lets the user preview realtime behaviour
             // without actually requiring permission to save
