@@ -22,8 +22,8 @@
         'merge overwrite': "Overwrote the realtime session's content with the latest saved state",
         savedRemote: 'remote save: v',
         mergeDialog_prompt: "A change was made to the docuement outside of the realtime session, "+
-        "and the server had difficulty merging it with your version. "+
-        "How would you like to handle this?",
+            "and the server had difficulty merging it with your version. "+
+            "How would you like to handle this?",
         mergeDialog_keepRealtime: "Overwrite all changes with the current realtime version",
         mergeDialog_keepRemote: "Overwrite the realtime versions with the current remote version"
     };
@@ -31,7 +31,6 @@
         RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
         RTWiki_WebHome_sharejs_textarea: "$doc.getAttachmentURL('sharejs_textarea.js')",
         RTWiki_WebHome_rtwiki: "$doc.getAttachmentURL('rtwiki.js')",
-        RTWiki_WebHome_diff:"$doc.getAttachmentURL('diff.js')",
         RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
         RTWiki_GetKey: "$xwiki.getURL('RTWiki.GetKey','jsx')"
     };
