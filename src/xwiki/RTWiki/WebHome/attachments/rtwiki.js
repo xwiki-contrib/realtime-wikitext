@@ -586,9 +586,13 @@ define([
                             var lastVersion = lastSaved.version;
 
                             // get document version
-                            bumpVersion(toSave, function(out){ 
-                                debug("Version bumped from " + lastVersion +
-                                    " to "+ out.version+".");
+                            bumpVersion(toSave, function(out){
+                                if (out.version === "1.1") {
+                                    debug("Created document version 1.1");
+                                } else {
+                                    debug("Version bumped from " + lastVersion +
+                                        " to "+ out.version+".");
+                                }
                                 lastSaved.mergeMessage('saved',out.version);
                             });
                         });
