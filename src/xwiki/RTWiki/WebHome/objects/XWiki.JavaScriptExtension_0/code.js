@@ -17,7 +17,15 @@
         editingWith: "Editing With:",
         initializing: "Initializing...",
 
-        lag: "Lag:"
+        lag: "Lag:",
+        saved: "Saved: v",
+        'merge overwrite': "Overwrote the realtime session's content with the latest saved state",
+        savedRemote: 'remote save: v',
+        mergeDialog_prompt: "A change was made to the docuement outside of the realtime session, "+
+        "and the server had difficulty merging it with your version. "+
+        "How would you like to handle this?",
+        mergeDialog_keepRealtime: "Overwrite all changes with the current realtime version",
+        mergeDialog_keepRemote: "Overwrite the realtime versions with the current remote version"
     };
     var PATHS = {
         RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
