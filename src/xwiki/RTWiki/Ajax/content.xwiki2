@@ -1,74 +1,77 @@
-{{velocity}}
+{{velocity output=false }}
 #*
     this script provides a serverside merge API which allows realtime sessions
     to peacefully coexist with simultaneous non-realtime sessions.
     It expects the client to post its current realtime session content, the
-    name of the relevant document, and the version of its latest common 
+    name of the relevant document, and the version of its latest common
     ancestor (the last known savepoint)
 *#
-## TODO find out what a merge error would look like
-#set ($err = "false" )
+
+#set ($mymap = {})
+#set ($mymap["error"] = false)
+#set($CR = $util.decodeURI("%0D"))
+
 #if($request.version)
+
 ## the version the client expects to be its latest common ancestor
     #set ($rtVersion = $request.get('version'))
 ## the name of the document
     #set ($rtDocumentName = $request.get('document'))
 ## the realtime editor's content
     #set ($rtLiveContent = $request.get('content'))
-##
+
     #set ($actualDocument=$xwiki.getDocument($rtDocumentName))
     #set ($actualContent = $actualDocument.getContent())
     #set ($originalDocument = $actualDocument.getDocumentRevision($rtVersion))
     #set ($rtRevision = $originalDocument.getContent())
-    #set ($currentVersion = $originalDocument.getVersion())
-##
+
+    #set ($mymap["parentVersion"] = $rtVersion)
+    #set ($mymap["latestVersion"] = $originalDocument.getVersion())
+
     #if($rtRevision == $actualContent)
-{
-    "error": ${err},
-    "content": $jsontool.serialize($rtLiveContent),
-    "latestVersion": "$currentVersion",
-    "merged": false,
-    "conflicts": false,
-    "errorCount": 0,
-    "saveRequired": true
-}
+        #set ($mymap["content"] = $rtLiveContent)
+        #set ($mymap["merged"] = false)
+        #set ($mymap["conflicts"] = false)
+        #set ($mymap["saveRequired"] = true)
     #elseif($rtLiveContent == $actualContent)
-{
-    "error": ${err},
-    "content": $jsontool.serialize($rtLiveContent),
-    "merged": false,
-    "conflicts": false,
-    "errorCount": 0,
-    "saveRequired": false
-}
+        #set ($mymap["content"] = $rtLiveContent)
+        #set ($mymap["merged"] = false)
+        #set ($mymap["conflicts"] = false)
+        #set ($mymap["saveRequired"] = false)
     #else
         #set ($placeholder = " ${escapetool.getNewline()} ")
-        #set ($splitRevision=$rtRevision.replaceAll("\r","").replaceAll("\n", $placeholder).split(" "))
-        #set ($splitLiveContent=$rtLiveContent.replaceAll("\r","").replaceAll("\n", $placeholder).split(" "))
-        #set ($splitActualContent=$actualContent.replaceAll("\r","").replaceAll("\n", $placeholder).split(" "))
-##
+
+        #set ($rtRevisionReplaced = $rtRevision.replace($CR,"").replace($escapetool.getNewline(), $placeholder))
+        #set ($splitRevision= $rtRevisionReplaced.split(" "))
+
+        #set ($liveContentReplaced = $rtLiveContent.replace($CR,"").replace($escapetool.getNewline(), $placeholder))
+        #set ($splitLiveContent= $liveContentReplaced.split(" "))
+
+        #set ($actualContentReplaced = $actualContent.replace($CR,"").replace($escapetool.getNewline(), $placeholder))
+        #set ($splitActualContent= $actualContentReplaced.split(" "))
+
         #set ($OList = [])
         #foreach($o in $splitRevision) #set($discard=$OList.add($o)) #end
-##
-        ## NOTE :: Realtime content must be used as $BList, as the merge algorithm
-        ## will prefer those changes
+
         #set ($BList = [])
         #foreach($b in $splitLiveContent) #set($discard=$BList.add($b)) #end
-##
+
         #set ($AList = [])
         #foreach($a in $splitActualContent) #set($discard=$AList.add($a)) #end
-##
+
         #set ($merged=$services.diff.merge( $OList, $AList, $BList, null))
-##
-        #set ($final = $stringtool.join($merged.getMerged(), " ").replaceAll($placeholder, $escapetool.getNewline()))
-{
-    "error": ${err},
-    "content": $jsontool.serialize($final),
-    "merged": true,
-    "conflicts": $jsontool.serialize($merged.getLog()),
-    "errorCount": $jsontool.serialize($merged.getLog().size),
-    "saveRequired": true
-}
+
+        #set ($final = $stringtool.join($merged.getMerged(), " ").replace($placeholder, $escapetool.getNewline()))
+
+        #set ($mymap["content"] = $final)
+        #set ($mymap["merged"] = true)
+        #set ($mymap["conflicts"] = $merged.getLog())
+        #set ($mymap["saveRequired"] = true)
+
     #end
 #end
+
+#set ($out = $jsontool.serialize($mymap))
+$response.getOutputStream().print($out)
+$xcontext.setFinished(true)
 {{/velocity}}
