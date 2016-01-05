@@ -21,11 +21,12 @@
         saved: "Saved: v",
         'merge overwrite': "Overwrote the realtime session's content with the latest saved state",
         savedRemote: 'remote save: v',
+        conflictResolved: 'merge conflict resolved remotely, now v',
         mergeDialog_prompt: "A change was made to the docuement outside of the realtime session, "+
             "and the server had difficulty merging it with your version. "+
             "How would you like to handle this?",
         mergeDialog_keepRealtime: "Overwrite all changes with the current realtime version",
-        mergeDialog_keepRemote: "Overwrite the realtime versions with the current remote version"
+        mergeDialog_keepRemote:   "Overwrite all changes with the current remote version"
     };
     var PATHS = {
         RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
