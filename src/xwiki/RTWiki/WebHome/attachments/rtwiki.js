@@ -194,7 +194,7 @@ define([
                     $merges.html('');
                     $merges.show();
                 });
-            },5000);
+            },10000);
         };
         return $merges;
     };
@@ -303,7 +303,8 @@ define([
     };
 
     var ajaxMerge = function (textArea, cb) {
-        var url = mainConfig.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
+        // outputSyntax=plain is no longer necessary
+        var url = mainConfig.ajaxMergeUrl + '?xpage=plain';
 
         /* version, document */
         var stats=getDocumentStatistics();
@@ -406,14 +407,6 @@ define([
 
     var saveMessage=function (socket, channel, myUserName, toSave, version) {
         debug("saved document"); // RT_event-on_save
-        /*
-            FIXME RTWIKI-34
-            this may not have been working correctly until now.
-            chainpad throws an error on unrecognized message types
-                chainpad.js line 461 
-            MESSAGE_TYPE_ISAVED is triggering this behaviour now,
-            but it didn't seem to do so before...
-        */
         var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, version]);
         // show(saved(version))
         lastSaved.mergeMessage('saved', version);
@@ -441,10 +434,23 @@ define([
         var param = {
             confirmationText: question,
             yesButtonText: labelDefault,
-            noButtonText: labelAlternative
+            noButtonText: labelAlternative,
+            showCancelButton: true
         };
 
         new XWiki.widgets.ConfirmationBox(behave, param);
+    };
+
+    window.destroyDialog = function (cb) {
+        var $box = $('.xdialog-box.xdialog-box-confirmation'),
+            $question = $box.find('.question'),
+            $content = $box.find('.xdialog-content');
+        if ($box.length) {
+            $content.find('.button.cancel').click();
+            cb && cb(true);
+        } else {
+            cb && cb(false);
+        }
     };
 
     /*
@@ -489,12 +495,20 @@ define([
             }
                 /* RT_event-on_isave_receive */
             if (lastSaved.version !== json[1]) {
+                // remove any dialogs that might currently be displayed
+                destroyDialog(function (dialogDestroyed) {
+                    if (dialogDestroyed) {
+                        // tell the user about the merge resolution
+                        lastSaved.mergeMessage('conflictResolved', json[1]);
+                    } else {
+                        // http://jira.xwiki.org/browse/RTWIKI-34
+                        lastSaved.mergeMessage('savedRemote', json[1]);
+                    }
+                });
+
                 debug("A remote client saved and incremented the latest common ancestor");
                 // update the local latest Common Ancestor version string
                 lastSaved.version = json[1];
-
-                // http://jira.xwiki.org/browse/RTWIKI-34
-                lastSaved.mergeMessage('savedRemote', json[1]);
 
                 // remember the state of the textArea when last saved
                 // so that we can avoid additional minor versions
@@ -619,7 +633,6 @@ define([
                         // disconnect and hang
 
                         mergeDialogCurrentlyDisplayed = true;
-                        // FIXME this should all be translatable...
                         presentMergeDialog(
                             messages.mergeDialog_prompt,
 
@@ -688,8 +701,14 @@ define([
         var check = function () {
             if (to) { clearTimeout(to); }
             verbose("createSaver.check");
-            to = setTimeout(check, Math.random() * SAVE_DOC_CHECK_CYCLE);
-            if (now() - lastSaved.time < SAVE_DOC_TIME) { return; }
+            var periodDuration = Math.random() * SAVE_DOC_CHECK_CYCLE;
+            to = setTimeout(check, periodDuration);
+
+            verbose("Will attempt to save again in " + periodDuration +"ms.");
+            if (now() - lastSaved.time < SAVE_DOC_TIME) {
+                verbose("(Now - lastSaved.time) < SAVE_DOC_TIME");
+                return;
+            }
             // avoid queuing up multiple merge dialogs
             if (mergeDialogCurrentlyDisplayed) { return; }
 
@@ -932,6 +951,8 @@ define([
 
             socket.onMessage.push(function (evt) {
                 verbose(evt.data);
+                // shortcircuit so chainpad doesn't complain about bad messages
+                if (/:\[5000/.test(evt.data)) { return; }
                 realtime.message(evt.data);
             });
             realtime.onMessage(function (message) { socket.send(message); });
