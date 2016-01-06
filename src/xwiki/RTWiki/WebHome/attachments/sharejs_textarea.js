@@ -65,10 +65,18 @@ var applyChange = function(ctx, oldval, newval) {
     commonEnd++;
   }
 
+    var bugz = {
+        commonStart:commonStart,
+        commonEnd:commonEnd,
+        oldvalLength: oldval.length,
+        newvalLength: newval.length
+    };
   if (oldval.length !== commonStart + commonEnd) {
+      ctx.localChange && ctx.localChange(true);
     ctx.remove(commonStart, oldval.length - commonStart - commonEnd);
   }
   if (newval.length !== commonStart + commonEnd) {
+      ctx.localChange && ctx.localChange(true);
     ctx.insert(commonStart, newval.slice(commonStart, newval.length - commonEnd));
   }
 };
@@ -140,8 +148,7 @@ var attachTextarea = function(elem, ctx) {
   // This function generates operations from the changed content in the textarea.
   var genOp = function() {
     // In a timeout so the browser has time to propogate the event's changes to the DOM.
-    setTimeout(function() {
-      var val = elem.value;
+    setTimeout(function() { var val = elem.value;
       if (val !== content) {
         applyChange(ctx, ctx.getUserDoc(), cannonicalize(val));
       }
