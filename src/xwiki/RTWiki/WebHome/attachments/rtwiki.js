@@ -96,6 +96,9 @@ define([
         userMap[messages.myself] = 1;
         userList.splice(meIdx, 1);
         for (var i = 0; i < userList.length; i++) {
+            if (userList[i] === myUserName) {
+                continue;
+            }
             var user;
             if (userList[i].indexOf('xwiki:XWiki.XWikiGuest') === 0) {
                 if (userMap.Guests) {
@@ -180,18 +183,26 @@ define([
         var timeout;
 
         // drop a method into the lastSaved object which handles messages
-        lastSaved.mergeMessage = function (msg_type, msg) {
+        lastSaved.mergeMessage = function (msg_type, args) {
             // keep multiple message sequences from fighting over resources
             timeout && clearTimeout(timeout);
 
+            var formattedMessage = messages[msg_type].replace(/\{\d+\}/g, function (token) {
+                // if you pass an insufficient number of arguments
+                // it will return 'undefined'
+                return args[token.slice(1,-1)];
+            });
+
+            debug(formattedMessage);
+
             // set the message, handle all types
-            $merges.html(messages[msg_type]+msg);
+            $merges.text(formattedMessage);
       
             // clear the message box in five seconds
             // 1.5s message fadeout time
             timeout = setTimeout(function () {
                 $merges.fadeOut(1500, function () {
-                    $merges.html('');
+                    $merges.text('');
                     $merges.show();
                 });
             },10000);
@@ -405,11 +416,16 @@ define([
             for when we are actually ready for our content to be saved.
     */
 
+    /*
+        FIXME listen for 'save and continue' and send ISAVED
+        document.observe("xwiki:actions:save", updateForShortcut);
+    */
+
     var saveMessage=function (socket, channel, myUserName, toSave, version) {
         debug("saved document"); // RT_event-on_save
         var saved = JSON.stringify([MESSAGE_TYPE_ISAVED, version]);
         // show(saved(version))
-        lastSaved.mergeMessage('saved', version);
+        lastSaved.mergeMessage('saved', [version]);
         socket.send('1:x' +
             myUserName.length + ':' + myUserName +
             channel.length + ':' + channel +
@@ -473,8 +489,11 @@ define([
         of unnecessary saves, as well as the number of unnecessary merges.
     */
     var createSaver = function (socket, channel, myUserName, textArea, demoMode, language, messages) {
+        socket.realtime.localChange = function (condition) {
+            lastSaved.wasEditedLocally = condition;
+        };
+
         lastSaved.time = now();
-        var hasTripped = false;
         var mergeDialogCurrentlyDisplayed = false;
         socket.onMessage.unshift(function (evt) {
             // get the content...
@@ -487,26 +506,25 @@ define([
             // not an isaved message
             if (json[0] !== MESSAGE_TYPE_ISAVED) { return; }
 
-            // hack to ignore the rest of this block on load
-            // FIXME
-            if (!hasTripped) {
-                hasTripped = true;
-                return;
-            }
                 /* RT_event-on_isave_receive */
             if (lastSaved.version !== json[1]) {
                 // remove any dialogs that might currently be displayed
                 destroyDialog(function (dialogDestroyed) {
                     if (dialogDestroyed) {
                         // tell the user about the merge resolution
-                        lastSaved.mergeMessage('conflictResolved', json[1]);
+                        lastSaved.mergeMessage('conflictResolved', [json[1]]);
                     } else {
                         // http://jira.xwiki.org/browse/RTWIKI-34
-                        lastSaved.mergeMessage('savedRemote', json[1]);
+                        var remoteUser = decodeURIComponent(evt.data.replace(/^[^\-]*-|%2d[^%]*$/g, ''));
+                        lastSaved.mergeMessage('savedRemote', [json[1], remoteUser]);
                     }
                 });
 
                 debug("A remote client saved and incremented the latest common ancestor");
+
+                // update lastSaved attributes
+                lastSaved.wasEditedLocally = false;
+
                 // update the local latest Common Ancestor version string
                 lastSaved.version = json[1];
 
@@ -593,8 +611,10 @@ define([
                     if (merge.saveRequired) {
                         toSave = $textArea.val();
                         saveDocument(textArea, language, function () {
+                            // update values in lastSaved
                             lastSaved.time = now();
                             lastSaved.content = toSave;
+                            lastSaved.wasEditedLocally = false;
 
                             // cache this because bumpVersion will increment it
                             var lastVersion = lastSaved.version;
@@ -607,7 +627,7 @@ define([
                                     debug("Version bumped from " + lastVersion +
                                         " to "+ out.version+".");
                                 }
-                                lastSaved.mergeMessage('saved',out.version);
+                                lastSaved.mergeMessage('saved',[out.version]);
                             });
                         });
                     } else {
@@ -658,7 +678,7 @@ define([
                                         $textArea.val(data.content);
                                         debug("Overwrote the realtime session's content with the latest saved state");
                                         bumpVersion(function () {
-                                            lastSaved.mergeMessage('merge overwrite','');
+                                            lastSaved.mergeMessage('merge overwrite',[]);
                                         });
                                     },
                                     error: function (err) {
@@ -705,6 +725,13 @@ define([
             to = setTimeout(check, periodDuration);
 
             verbose("Will attempt to save again in " + periodDuration +"ms.");
+
+            if (!lastSaved.wasEditedLocally) {
+                verbose("Skipping save routine because no changes have been made locally");
+                return;
+            } else {
+                verbose("There have been local changes!");
+            }
             if (now() - lastSaved.time < SAVE_DOC_TIME) {
                 verbose("(Now - lastSaved.time) < SAVE_DOC_TIME");
                 return;
@@ -947,15 +974,18 @@ define([
 
             setAutosaveHiddenState(true);
 
-            createSaver(socket, channel, userName, textArea, demoMode, language, messages);
 
             socket.onMessage.push(function (evt) {
+                // FIXME
+                window.lastEvent = evt;
                 verbose(evt.data);
                 // shortcircuit so chainpad doesn't complain about bad messages
                 if (/:\[5000/.test(evt.data)) { return; }
                 realtime.message(evt.data);
             });
-            realtime.onMessage(function (message) { socket.send(message); });
+            realtime.onMessage(function (message) {
+                socket.send(message);
+            });
 
             $(textArea).attr("disabled", "disabled");
 
@@ -975,6 +1005,8 @@ define([
                     $textArea.val(userDoc);
                     TextArea.attach($(textArea)[0], realtime);
                     $textArea.removeAttr("disabled");
+
+                    createSaver(socket, channel, userName, textArea, demoMode, language, messages);
                 }
                 if (!initializing) {
                     updateUserList(userName, userListElement, userList, messages);
