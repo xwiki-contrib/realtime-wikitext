@@ -18,10 +18,10 @@
         initializing: "Initializing...",
 
         lag: "Lag:",
-        saved: "Saved: v",
+        saved: "Saved: v{0}",
         'merge overwrite': "Overwrote the realtime session's content with the latest saved state",
-        savedRemote: 'remote save: v',
-        conflictResolved: 'merge conflict resolved remotely, now v',
+        savedRemote: 'v{0} autosaved by {1}',
+        conflictResolved: 'merge conflict resolved remotely, now v{0}',
         mergeDialog_prompt: "A change was made to the docuement outside of the realtime session, "+
             "and the server had difficulty merging it with your version. "+
             "How would you like to handle this?",
