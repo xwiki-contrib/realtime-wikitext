@@ -211,7 +211,7 @@ var equals = Patch.equals = function (patchA, patchB) {
     return true;
 };
 
-var transform = Patch.transform = function (origToTransform, transformBy, doc) {
+var transform = Patch.transform = function (origToTransform, transformBy, doc, transformFunction) {
     if (Common.PARANOIA) {
         check(origToTransform, doc.length);
         check(transformBy, doc.length);
@@ -221,22 +221,20 @@ var transform = Patch.transform = function (origToTransform, transformBy, doc) {
     var resultOfTransformBy = apply(transformBy, doc);
 
     toTransform = clone(origToTransform);
+    var text = doc;
     for (var i = toTransform.operations.length-1; i >= 0; i--) {
+        text = Operation.apply(toTransform.operations[i], text);
         for (var j = transformBy.operations.length-1; j >= 0; j--) {
-            toTransform.operations[i] =
-                Operation.transform(toTransform.operations[i], transformBy.operations[j]);
+            toTransform.operations[i] = Operation.transform(text,
+                                                            toTransform.operations[i],
+                                                            transformBy.operations[j],
+                                                            transformFunction);
             if (!toTransform.operations[i]) {
                 break;
             }
         }
         if (Common.PARANOIA && toTransform.operations[i]) {
-try {
             Operation.check(toTransform.operations[i], resultOfTransformBy.length);
-} catch (e) {
-console.log('transform('+JSON.stringify([origToTransform,transformBy,doc], null, '  ')+');');
-console.log(JSON.stringify(toTransform.operations[i]));
-throw e;
-}
         }
     }
     var out = create(transformBy.parentHash);
@@ -252,7 +250,7 @@ throw e;
         check(out, resultOfTransformBy.length);
     }
     return out;
-}
+};
 
 var random = Patch.random = function (doc, opCount) {
     Common.assert(typeof(doc) === 'string');
@@ -370,24 +368,23 @@ var random = Patch.random = function (doc, opCount) {
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-var Common = module.exports;
 
-Common.PARANOIA = false;
+var PARANOIA = module.exports.PARANOIA = false;
 
 /* throw errors over non-compliant messages which would otherwise be treated as invalid */
-Common.TESTING = true;
+var TESTING = module.exports.TESTING = true;
 
-var assert = Common.assert = function (expr) {
+var assert = module.exports.assert = function (expr) {
     if (!expr) { throw new Error("Failed assertion"); }
 };
 
-var isUint = Common.isUint = function (integer) {
+var isUint = module.exports.isUint = function (integer) {
     return (typeof(integer) === 'number') &&
         (Math.floor(integer) === integer) &&
         (integer >= 0);
 };
 
-var randomASCII = Common.randomASCII = function (length) {
+var randomASCII = module.exports.randomASCII = function (length) {
     var content = [];
     for (var i = 0; i < length; i++) {
         content[i] = String.fromCharCode( Math.floor(Math.random()*256) % 57 + 65 );
@@ -395,17 +392,11 @@ var randomASCII = Common.randomASCII = function (length) {
     return content.join('');
 };
 
-var compareHashes = Common.compareHashes = function (hashA, hashB) {
-    while (hashA.length > 0) {
-        var numA = new Number('0x' + hashA.substring(0,8));
-        var numB = new Number('0x' + hashB.substring(0,8));
-        if (numA > numB) { return 1; }
-        if (numB > numA) { return -1; }
-        hashA = hashA.substring(8);
-        hashB = hashB.substring(8);
-    }
-    return 0;
-};
+var strcmp = module.exports.strcmp = function (a, b) {
+    if (PARANOIA && typeof(a) !== 'string') { throw new Error(); }
+    if (PARANOIA && typeof(b) !== 'string') { throw new Error(); }
+    return ( (a === b) ? 0 : ( (a > b) ? 1 : -1 ) );
+}
 
 },
 "Message.js": function(module, exports, require){
@@ -598,6 +589,18 @@ var unschedule = function (realtime, schedule) {
     clearTimeout(schedule);
 };
 
+var onMessage = function (realtime, message, callback) {
+    if (!realtime.messageHandlers.length) {
+        callback("no onMessage() handler registered");
+    }
+    for (var i = 0; i < realtime.messageHandlers.length; i++) {
+        realtime.messageHandlers[i](message, function () {
+            callback.apply(null, arguments);
+            callback = function () { };
+        });
+    }
+};
+
 var sync = function (realtime) {
     if (Common.PARANOIA) { check(realtime); }
     if (realtime.syncSchedule) {
@@ -631,7 +634,7 @@ var sync = function (realtime) {
 
     var strMsg = Message.toString(msg);
 
-    realtime.onMessage(strMsg, function (err) {
+    onMessage(realtime, strMsg, function (err) {
         if (err) {
             debug(realtime, "Posting to server failed [" + err + "]");
         }
@@ -658,7 +661,6 @@ var sync = function (realtime) {
 };
 
 var getMessages = function (realtime) {
-    if (realtime.registered === true) { return; }
     realtime.registered = true;
     /*var to = schedule(realtime, function () {
         throw new Error("failed to connect to the server");
@@ -667,7 +669,7 @@ var getMessages = function (realtime) {
                              realtime.authToken,
                              realtime.channelId,
                              Message.REGISTER);
-    realtime.onMessage(Message.toString(msg), function (err) {
+    onMessage(realtime, Message.toString(msg), function (err) {
         if (err) { throw err; }
     });
 };
@@ -680,7 +682,7 @@ var sendPing = function (realtime) {
                              realtime.channelId,
                              Message.PING,
                              realtime.lastPingTime);
-    realtime.onMessage(Message.toString(msg), function (err) {
+    onMessage(realtime, Message.toString(msg), function (err) {
         if (err) { throw err; }
     });
 };
@@ -716,9 +718,7 @@ var create = ChainPad.create = function (userName, authToken, channelId, initial
         patchHandlers: [],
         opHandlers: [],
 
-        onMessage: function (message, callback) {
-            callback("no onMessage() handler registered");
-        },
+        messageHandlers: [],
 
         schedules: [],
 
@@ -780,8 +780,7 @@ var create = ChainPad.create = function (userName, authToken, channelId, initial
         return realtime;
     }
 
-    var initialOp = Operation.create();
-    initialOp.toInsert = initialState;
+    var initialOp = Operation.create(0, 0, initialState);
     var initialStatePatch = Patch.create(zeroPatch.inverseOf.parentHash);
     Patch.addOperation(initialStatePatch, initialOp);
     initialStatePatch.inverseOf = Patch.invert(initialStatePatch, '');
@@ -883,7 +882,9 @@ var applyPatch = function (realtime, author, patch) {
         realtime.uncommitted = Patch.invert(realtime.uncommitted, userInterfaceContent);
 
     } else {
-        realtime.uncommitted = Patch.transform(realtime.uncommitted, patch, realtime.authDoc);
+        realtime.uncommitted =
+            Patch.transform(
+                realtime.uncommitted, patch, realtime.authDoc, realtime.config.transformFunction);
     }
     realtime.uncommitted.parentHash = patch.inverseOf.parentHash;
 
@@ -941,6 +942,11 @@ var handleMessage = ChainPad.handleMessage = function (realtime, msgStr) {
     }
 
     if (msg.messageType === Message.DISCONNECT) {
+        if (msg.userName === '') {
+            realtime.userList = [];
+            userListChange(realtime);
+            return;
+        }
         var idx = realtime.userList.indexOf(msg.userName);
         if (Common.PARANOIA) { Common.assert(idx > -1); }
         if (idx > -1) {
@@ -990,7 +996,7 @@ var handleMessage = ChainPad.handleMessage = function (realtime, msgStr) {
         var pcMsg = parentCount(realtime, msg);
         if (pcBest < pcMsg
           || (pcBest === pcMsg
-            && Common.compareHashes(realtime.best.hashOf, msg.hashOf) > 0))
+            && Common.strcmp(realtime.best.hashOf, msg.hashOf) > 0))
         {
             // switch chains
             while (commonAncestor && !isAncestorOf(realtime, commonAncestor, msg)) {
@@ -1087,18 +1093,67 @@ var handleMessage = ChainPad.handleMessage = function (realtime, msgStr) {
         Common.assert(newUserInterfaceContent === realtime.userInterfaceContent);
     }
 
-    // push the uncommittedPatch out to the user interface.
-    for (var i = 0; i < realtime.patchHandlers.length; i++) {
-        realtime.patchHandlers[i](uncommittedPatch);
-    }
-    if (realtime.opHandlers.length) {
-        for (var i = uncommittedPatch.operations.length-1; i >= 0; i--) {
-            for (var j = 0; j < realtime.opHandlers.length; j++) {
-                realtime.opHandlers[j](uncommittedPatch.operations[i]);
+    if (uncommittedPatch.operations.length) {
+        // push the uncommittedPatch out to the user interface.
+        for (var i = 0; i < realtime.patchHandlers.length; i++) {
+            realtime.patchHandlers[i](uncommittedPatch);
+        }
+        if (realtime.opHandlers.length) {
+            for (var i = uncommittedPatch.operations.length-1; i >= 0; i--) {
+                for (var j = 0; j < realtime.opHandlers.length; j++) {
+                    realtime.opHandlers[j](uncommittedPatch.operations[i]);
+                }
             }
         }
     }
     if (Common.PARANOIA) { check(realtime); }
+};
+
+var wasEverState = function (content, realtime) {
+    Common.assert(typeof(content) === 'string');
+    // without this we would never get true on the ^HEAD
+    if (realtime.authDoc === content) {
+        return true;
+    }
+
+    var hash = Sha.hex_sha256(content);
+
+    var patchMsg = realtime.best;
+    do {
+        if (patchMsg.content.parentHash === hash) { return true; }
+    } while ((patchMsg = getParent(realtime, patchMsg)));
+    return false;
+};
+
+var getDepthOfState = function (content, minDepth, realtime) {
+    Common.assert(typeof(content) === 'string');
+
+    // minimum depth is an optional argument which defaults to zero
+    var minDepth = minDepth || 0;
+
+    if (minDepth === 0 && realtime.authDoc === content) {
+        return 0;
+    }
+
+    var hash = Sha.hex_sha256(content);
+
+    var patchMsg = realtime.best;
+    var depth = 0;
+
+    do {
+        if (depth < minDepth) {
+            // you haven't exceeded the minimum depth
+        } else {
+            //console.log("Exceeded minimum depth");
+            // you *have* exceeded the minimum depth
+            if (patchMsg.content.parentHash === hash) {
+                // you found it!
+                return depth + 1;
+            }
+        }
+        depth++;
+    } while ((patchMsg = getParent(realtime, patchMsg)));
+    return;
 };
 
 module.exports.create = function (userName, authToken, channelId, initialState, conf) {
@@ -1125,25 +1180,21 @@ module.exports.create = function (userName, authToken, channelId, initialState, 
             });
         }),
         remove: enterChainPad(realtime, function (offset, numChars) {
-            var op = Operation.create();
-            op.offset = offset;
-            op.toRemove = numChars;
-            doOperation(realtime, op);
+            doOperation(realtime, Operation.create(offset, numChars, ''));
         }),
         insert: enterChainPad(realtime, function (offset, str) {
-            var op = Operation.create();
-            op.offset = offset;
-            op.toInsert = str;
-            doOperation(realtime, op);
+            doOperation(realtime, Operation.create(offset, 0, str));
         }),
         onMessage: enterChainPad(realtime, function (handler) {
-            realtime.onMessage = handler;
+            Common.assert(typeof(handler) === 'function');
+            realtime.messageHandlers.push(handler);
         }),
         message: enterChainPad(realtime, function (message) {
             handleMessage(realtime, message);
         }),
         start: enterChainPad(realtime, function () {
             getMessages(realtime);
+            if (realtime.syncSchedule) { unschedule(realtime, realtime.syncSchedule); }
             realtime.syncSchedule = schedule(realtime, function () { sync(realtime); });
         }),
         abort: enterChainPad(realtime, function () {
@@ -1163,6 +1214,12 @@ module.exports.create = function (userName, authToken, channelId, initialState, 
                 return { waiting:1, lag: (new Date()).getTime() - realtime.lastPingTime };
             }
             return { waiting:0, lag: realtime.lastPingLag };
+        },
+        wasEverState: function (content) {
+            return wasEverState(content, realtime);
+        },
+        getDepthOfState: function (content, minDepth) {
+            return getDepthOfState(content, minDepth, realtime);
         }
     };
 };
@@ -1187,15 +1244,8 @@ module.exports.create = function (userName, authToken, channelId, initialState, 
  */
 var Common = require('./Common');
 
-var Operation = {};
-var create = Operation.create = function () {
-    return {
-        type: 'Operation',
-        offset: 0,
-        toRemove: 0,
-        toInsert: '',
-    };
-};
+var Operation = module.exports;
+
 var check = Operation.check = function (op, docLength_opt) {
     Common.assert(op.type === 'Operation');
     Common.assert(Common.isUint(op.offset));
@@ -1205,6 +1255,17 @@ var check = Operation.check = function (op, docLength_opt) {
     Common.assert(typeof(docLength_opt) !== 'number' || op.offset + op.toRemove <= docLength_opt);
 };
 
+var create = Operation.create = function (offset, toRemove, toInsert) {
+    var out = {
+        type: 'Operation',
+        offset: offset || 0,
+        toRemove: toRemove || 0,
+        toInsert: toInsert || '',
+    };
+    if (Common.PARANOIA) { check(out); }
+    return out;
+};
+
 var toObj = Operation.toObj = function (op) {
     if (Common.PARANOIA) { check(op); }
     return [op.offset,op.toRemove,op.toInsert];
@@ -1212,21 +1273,11 @@ var toObj = Operation.toObj = function (op) {
 
 var fromObj = Operation.fromObj = function (obj) {
     Common.assert(Array.isArray(obj) && obj.length === 3);
-    var op = create();
-    op.offset = obj[0];
-    op.toRemove = obj[1];
-    op.toInsert = obj[2];
-    if (Common.PARANOIA) { check(op); }
-    return op;
+    return create(obj[0], obj[1], obj[2]);
 };
 
 var clone = Operation.clone = function (op) {
-    if (Common.PARANOIA) { check(op); }
-    var out = create();
-    out.offset = op.offset;
-    out.toRemove = op.toRemove;
-    out.toInsert = op.toInsert;
-    return out;
+    return create(op.offset, op.toRemove, op.toInsert);
 };
 
 /**
@@ -1388,17 +1439,12 @@ var rebase = Operation.rebase = function (oldOp, newOp) {
  * has to be lossy because both operations have the same base and they diverge.
  * This could be made nicer and/or tailored to a specific data type.
  *
- * @param toTransform the operation which is converted, MUTATED
+ * @param toTransform the operation which is converted *MUTATED*.
  * @param transformBy an existing operation which also has the same base.
- * @return nothing, input is mutated
+ * @return toTransform *or* null if the result is a no-op.
  */
-var transform = Operation.transform = function (toTransform, transformBy) {
-    if (Common.PARANOIA) {
-        check(toTransform);
-        check(transformBy);
-    }
+var transform0 = Operation.transform0 = function (text, toTransform, transformBy) {
     if (toTransform.offset > transformBy.offset) {
-        toTransform = clone(toTransform);
         if (toTransform.offset > transformBy.offset + transformBy.toRemove) {
             // simple rebase
             toTransform.offset -= transformBy.toRemove;
@@ -1418,7 +1464,6 @@ var transform = Operation.transform = function (toTransform, transformBy) {
     if (toTransform.offset + toTransform.toRemove < transformBy.offset) {
         return toTransform;
     }
-    toTransform = clone(toTransform);
     toTransform.toRemove = transformBy.offset - toTransform.offset;
     if (toTransform.toInsert.length === 0 && toTransform.toRemove === 0) {
         return null;
@@ -1426,20 +1471,34 @@ var transform = Operation.transform = function (toTransform, transformBy) {
     return toTransform;
 };
 
+/**
+ * @param toTransform the operation which is converted
+ * @param transformBy an existing operation which also has the same base.
+ * @return a modified clone of toTransform *or* toTransform itself if no change was made.
+ */
+var transform = Operation.transform = function (text, toTransform, transformBy, transformFunction) {
+    if (Common.PARANOIA) {
+        check(toTransform);
+        check(transformBy);
+    }
+    transformFunction = transformFunction || transform0;
+    toTransform = clone(toTransform);
+    var result = transformFunction(text, toTransform, transformBy);
+    if (Common.PARANOIA && result) { check(result); }
+    return result;
+};
+
 /** Used for testing. */
 var random = Operation.random = function (docLength) {
     Common.assert(Common.isUint(docLength));
-    var op = create();
-    op.offset = Math.floor(Math.random() * 100000000 % docLength) || 0;
-    op.toRemove = Math.floor(Math.random() * 100000000 % (docLength - op.offset)) || 0;
+    var offset = Math.floor(Math.random() * 100000000 % docLength) || 0;
+    var toRemove = Math.floor(Math.random() * 100000000 % (docLength - offset)) || 0;
+    var toInsert = '';
     do {
-        op.toInsert = Common.randomASCII(Math.floor(Math.random() * 20));
-    } while (op.toRemove === 0 && op.toInsert === '');
-    if (Common.PARANOIA) { check(op); }
-    return op;
+        var toInsert = Common.randomASCII(Math.floor(Math.random() * 20));
+    } while (toRemove === 0 && toInsert === '');
+    return create(offset, toRemove, toInsert);
 };
-
-module.exports = Operation;
 
 }
 };
