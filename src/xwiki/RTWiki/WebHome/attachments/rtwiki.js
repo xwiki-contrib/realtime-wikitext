@@ -95,9 +95,9 @@ define([
             '#secret-merge {',
             '   opacity: 0;',
             '}',
-/*            '#secret-merge:hover {',
+            '#secret-merge:hover {',
             '   opacity: 1;',
-            '}', */
+            '}',
             '</style>'
          ].join(''));
     };
@@ -930,6 +930,7 @@ define([
             saveRoutine(saveFinalizer);
         }; // end check
 
+/*
         (function(){
             var force = true;
             var id="secret-merge";
@@ -940,7 +941,7 @@ define([
             })
             .click(); // this should merge your page on load
             // ensuring that all clients are up to date.
-        }());
+        }());   */
 
         check();
         socket.onClose.push(function () {
