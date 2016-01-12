@@ -95,9 +95,9 @@ define([
             '#secret-merge {',
             '   opacity: 0;',
             '}',
-            '#secret-merge:hover {',
+/*            '#secret-merge:hover {',
             '   opacity: 1;',
-            '}',
+            '}', */
             '</style>'
          ].join(''));
     };
