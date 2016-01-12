@@ -418,6 +418,7 @@ define([
             xredirect: '',
             content: $(textArea).val(),
             xeditaction: 'edit',
+            // TODO make this translatable
             comment: 'Auto-Saved by Realtime Session',
             action_saveandcontinue: 'Save & Continue',
             minorEdit: 1,
