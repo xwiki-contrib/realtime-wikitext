@@ -1,10 +1,18 @@
-{{velocity}}
-## TODO report errors
-#set ($error = "false")
+{{velocity output=false }}
+
 #set ($name = $request.get('document'))
 #set ($currentDoc = $xwiki.getDocument($name))
 #set ($currentVersion = $currentDoc.getVersion())
-{
-    "version": "$currentVersion"
-}
+
+#set ($isNew = $currentDoc.isNew())
+
+#set ($mymap = {});
+
+#set ($mymap["isNew"] = $isNew)
+
+#set ($mymap["version"] = $currentVersion)
+
+#set ($out = $jsontool.serialize($mymap))
+$response.getOutputStream().print($out)
+$xcontext.setFinished(true)
 {{/velocity}}
