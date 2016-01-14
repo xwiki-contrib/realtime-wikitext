@@ -48,6 +48,9 @@ define([
         if (lastSaved.receivedISAVE) {
             warn("Another client sent an ISAVED message.");
             warn("Aborting save action");
+            // unset the flag, or else it will persist
+            lastSaved.receivedISAVE = false;
+            // return true such that calling functions know to abort
             return true;
         }
         return false;
@@ -676,7 +679,11 @@ define([
                     }
                 }
 
-                if (isaveInterrupt()) { return; }
+                if (isaveInterrupt()) { 
+                    // FIXME
+                    // andThen('                    
+                    return;
+                }
 
                 toSave = merge.content;
                 if (toSave === lastSaved.content) {
