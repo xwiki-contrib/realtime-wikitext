@@ -68,4 +68,12 @@ We were unable to parse the server's response.
 
 )))
 
+(% class="rtwiki-save" %)(((
+
+= Save Error =
+
+We were unable to save your document. Try again shortly.
+
+)))
+
 )))
