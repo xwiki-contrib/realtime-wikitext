@@ -380,14 +380,14 @@ define([
 
     // check a serverside api for the version string of the document
     var ajaxVersion = function (cb) {
-        var url = mainConfig.ajaxVersionUrl + '?xpage=plain&outputSyntax=plain';
+        var url = mainConfig.ajaxVersionUrl + '?xpage=plain';
         var stats = getDocumentStatistics();
         $.ajax({
             url: url,
             method: 'POST',
             dataType: 'json',
             success: function (data) {
-                cb(data.error||null, data);
+                cb(null, data);
             },
             data: stats,
             error: function (err) {
@@ -505,13 +505,8 @@ define([
         }
     };
 
-    // TODO see if there exists a function in the API for this
     var redirectToView = function () {
-        setTimeout(function () {
-        window.location.href = (''+window.location.href)
-            .replace(/\?.*$/,'')
-            .replace(/\/bin\/edit\//,'/bin/view/');
-        });
+        window.location.href = window.XWiki.currentDocument.getURL('view');
     };
 
     /*
@@ -528,7 +523,7 @@ define([
         contents are saved as a new version.
 
         Other members of the session are notified of the save, and the 
-        resulting new version. They then update their local state to match.
+        iesulting new version. They then update their local state to match.
 
         During this process, a series of checks are made to reduce the number
         of unnecessary saves, as well as the number of unnecessary merges.
@@ -679,9 +674,8 @@ define([
                     }
                 }
 
-                if (isaveInterrupt()) { 
-                    // FIXME
-                    // andThen('                    
+                if (isaveInterrupt()) {
+                    andThen("ISAVED interrupt", null);
                     return;
                 }
 
@@ -751,11 +745,13 @@ define([
                                     dataType: 'json',
                                     success: function (data) {
                                         $textArea.val(data.content);
-                                        debug("Overwrote the realtime session's content with the latest saved state");
+                                        socket.realtime.bumpSharejs();
 
+                                        debug("Overwrote the realtime session's content with the latest saved state");
                                         bumpVersion(socket, channel, myUserName, function () {
                                             lastSaved.mergeMessage('merge overwrite',[]);
                                         });
+                                        continuation(andThen);
                                     },
                                     error: function (err) {
                                         warn("Encountered an error while fetching remote content");
@@ -821,24 +817,13 @@ define([
                     warn(e);
                     //return;
                 } 
-                
-                if (shouldSave) {
-                    lastSaved.shouldRedirect = cont;
-                    // fire save event
-                    document.fire('xwiki:actions:save', {
-                        form: $('#edit')[0],
-                        continue: 1
-                    });
-                } else {
-                    verbose("No save was necessary.");
-                    lastSaved.content = toSave;
-                    // didn't save, don't need a callback
-                    bumpVersion(socket, channel, myUserName, function () {
-                        if (cont) {
-                            redirectToView();
-                        }
-                    });
-                }
+
+                lastSaved.shouldRedirect = cont;
+                // fire save event
+                document.fire('xwiki:actions:save', {
+                    form: $('#edit')[0],
+                    continue: 1
+                });
             }, force);
         };
 
@@ -875,34 +860,46 @@ define([
             // update your content
             updateLastSaved(toSave);
 
-            // bump the version, fire your isaved
-            bumpVersion(socket, channel, myUserName, function (out) {
-                if (out.version === "1.1") {
-                    debug("Created document version 1.1");
+            ajaxVersion(function (e, out) {
+                if (e) {
+                    // there was an error (probably ajax)
+                    warn(e);
+                    ErrorBox.show('save');
+                } else if (out.isNew) {
+                    // it didn't actually save?
+                    ErrorBox.show('save');
                 } else {
-                    debug("Version bumped from " + lastVersion +
-                        " to " + out.version + ".");
-                    lastSaved.mergeMessage("saved", [out.version]);
+                    lastSaved.onReceiveOwnIsave = function () {
+                        // once you get your isaved back, redirect
+                        debug("lastSaved.shouldRedirect " +
+                            lastSaved.shouldRedirect);
+                        if (lastSaved.shouldRedirect) {
+                            debug('createSaver.saveandview.receivedOwnIsaved');
+                            debug("redirecting!");
+                            redirectToView();
+                        } else {
+                            debug('createSaver.saveandcontinue.receivedOwnIsaved');
+                        }
+                        // clean up after yourself..
+                        lastSaved.onReceiveOwnIsave = null;
+                    };
+                    // bump the version, fire your isaved
+                    bumpVersion(socket, channel, myUserName, function (out) {
+                        if (out.version === "1.1") {
+                            debug("Created document version 1.1");
+                        } else {
+                            debug("Version bumped from " + lastVersion +
+                                " to " + out.version + ".");
+                        }
+                        lastSaved.mergeMessage("saved", [out.version]);
+                    });
                 }
-
-                lastSaved.onReceiveOwnIsave = function () {
-                    // once you get your isaved back, redirect
-                    debug("lastSaved.shouldRedirect " + lastSaved.shouldRedirect);
-                    if (lastSaved.shouldRedirect) {
-                        debug('createSaver.saveandview.receivedOwnIsaved');
-                        debug("redirecting!");
-                        redirectToView();
-                    } else {
-                        debug('createSaver.saveandcontinue.receivedOwnIsaved');
-                    }
-                    // clean up after yourself..
-                    lastSaved.onReceiveOwnIsave = null;
-                };
             });
             return true;
         });
 
         document.observe("xwiki:document:saveFailed", function (ev) {
+            ErrorBox.show('save');
             warn("save failed!!!");
         });
 
@@ -1045,7 +1042,7 @@ define([
             socket.onMessage.push(function (evt) {
                 verbose(evt.data);
                 // shortcircuit so chainpad doesn't complain about bad messages
-                if (/:\[5000/.test(evt.data)) { return; }
+                if (/:\[5000,/.test(evt.data)) { return; }
                 realtime.message(evt.data);
             });
             realtime.onMessage(function (message) {
