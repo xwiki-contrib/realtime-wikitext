@@ -380,7 +380,7 @@ define([
 
     // check a serverside api for the version string of the document
     var ajaxVersion = function (cb) {
-        var url = mainConfig.ajaxVersionUrl + '?xpage=plain';
+        var url = mainConfig.ajaxVersionUrl + '?xpage=plain&outputSyntax=plain';
         var stats = getDocumentStatistics();
         $.ajax({
             url: url,
