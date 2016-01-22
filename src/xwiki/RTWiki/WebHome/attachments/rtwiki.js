@@ -338,7 +338,7 @@ define([
 
     var ajaxMerge = function (textArea, cb) {
         // outputSyntax=plain is no longer necessary
-        var url = mainConfig.ajaxMergeUrl + '?xpage=plain';
+        var url = mainConfig.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
 
         /* version, document */
         var stats=getDocumentStatistics();
@@ -380,7 +380,7 @@ define([
 
     // check a serverside api for the version string of the document
     var ajaxVersion = function (cb) {
-        var url = mainConfig.ajaxVersionUrl + '?xpage=plain&outputSyntax=plain';
+        var url = mainConfig.ajaxVersionUrl + '?xpage=plain';
         var stats = getDocumentStatistics();
         $.ajax({
             url: url,
