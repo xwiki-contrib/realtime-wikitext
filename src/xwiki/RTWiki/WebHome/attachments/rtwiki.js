@@ -1203,6 +1203,7 @@ define([
             var link = forceLink.attr('href').replace(/\?(.*)$/, function (all, args) {
                 return '?' + args.split('&').filter(function (arg) {
                     if (arg === 'editor=inline') { return false; }
+                    if (arg === 'editor=wysiwyg') { return false; }
                     if (arg === 'sheet=CKEditor.EditSheet') { return false; }
                     return true;
                 }).join('&');
