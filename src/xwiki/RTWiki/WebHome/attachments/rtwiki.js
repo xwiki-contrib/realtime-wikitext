@@ -220,7 +220,7 @@ define([
 
             // set the message, handle all types
             $merges.text(formattedMessage);
-      
+
             // clear the message box in five seconds
             // 1.5s message fadeout time
             timeout = setTimeout(function () {
@@ -333,7 +333,7 @@ define([
             result[field] = $html.data('xwiki-'+field);
         });
 
-        return result;    
+        return result;
     };
 
     var ajaxMerge = function (textArea, cb) {
@@ -434,13 +434,13 @@ define([
         Object.keys(config).forEach(function (key) {
             data[key] = config[key];
         });
-        
+
         $.ajax({
             url: window.docsaveurl,
             type: "POST",
             async: true,
             dataType: 'text',
-            
+
             // http://jira.xwiki.org/browse/RTWIKI-36
             // don't worry about hijacking and resuming
             // if you can just add the usual fields to this, simply steal the event
@@ -522,7 +522,7 @@ define([
         if the resulting state does not match the last saved content, then the
         contents are saved as a new version.
 
-        Other members of the session are notified of the save, and the 
+        Other members of the session are notified of the save, and the
         iesulting new version. They then update their local state to match.
 
         During this process, a series of checks are made to reduce the number
@@ -647,7 +647,7 @@ define([
             lastSaved.receivedISAVE = false;
 
             var toSave = $(textArea).val();
-            if (lastSaved.content === toSave && !force ) { 
+            if (lastSaved.content === toSave && !force ) {
                 verbose("No changes made since last save. "+
                     "Avoiding unnecessary commits");
                 return;
@@ -657,7 +657,7 @@ define([
             // remember the current state so you can check if it has changed.
             var preMergeContent = $(textArea).val();
             ajaxMerge(textArea, function (err, merge) {
-                if (err) { 
+                if (err) {
                     if (typeof merge === 'undefined') {
                         warn("The ajax merge API did not return an object. "+
                             "Something went wrong");
@@ -734,7 +734,7 @@ define([
                             },
 
                             messages.mergeDialog_keepRemote,
-                            function () { 
+                            function () {
                                 debug("User chose to use the remote version!");
                                 // unset the merge dialog flag
                                 mergeDialogCurrentlyDisplayed = false;
@@ -793,7 +793,7 @@ define([
                             $textArea.val(toSave);
                             // bump sharejs to force propogation. only if changed
                             socket.realtime.bumpSharejs();
-                            // TODO show message informing the user 
+                            // TODO show message informing the user
                             // which versions were merged...
                             continuation(andThen);
                         }
@@ -816,7 +816,7 @@ define([
                 if (e) {
                     warn(e);
                     //return;
-                } 
+                }
 
                 lastSaved.shouldRedirect = cont;
                 // fire save event
@@ -1200,7 +1200,14 @@ define([
 
         var hasActiveRealtimeSession = function () {
             forceLink.text(messages.joinSession);
-            forceLink.attr('href', forceLink.attr('href') + '&editor=wiki');
+            var link = forceLink.attr('href').replace(/\?\(.*\)$/, function (all, args) {
+                return '?' + args.split('&').filter(function (arg) {
+                    if (arg === 'editor=inline') { return false; }
+                    if (arg === 'sheet=CKEditor.EditSheet') { return false; }
+                    return true;
+                }).join('&');
+            });
+            forceLink.attr('href', link + '&editor=wiki');
         };
 
         if (forceLink.length && !localStorage.getItem(LOCALSTORAGE_DISALLOW)) {
