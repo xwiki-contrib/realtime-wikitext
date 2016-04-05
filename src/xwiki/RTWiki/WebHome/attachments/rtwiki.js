@@ -1200,7 +1200,7 @@ define([
 
         var hasActiveRealtimeSession = function () {
             forceLink.text(messages.joinSession);
-            var link = forceLink.attr('href').replace(/\?\(.*\)$/, function (all, args) {
+            var link = forceLink.attr('href').replace(/\?(.*)$/, function (all, args) {
                 return '?' + args.split('&').filter(function (arg) {
                     if (arg === 'editor=inline') { return false; }
                     if (arg === 'sheet=CKEditor.EditSheet') { return false; }
