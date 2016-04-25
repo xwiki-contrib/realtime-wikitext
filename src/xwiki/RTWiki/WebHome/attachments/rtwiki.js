@@ -128,46 +128,6 @@ define([
         listElement.text(messages.editingWith + ' ' + userListOut.join(', '));
     };
 
-    /*  TODO
-        move into Interface (after factoring out more arguments)
-
-        // maybe this should go in autosaver instead?
-    */
-    var createMergeMessageElement = function (container, messages) {
-        var id = uid();
-        $(container).prepend( '<div class="rtwiki-merge" id="'+id+'"></div>');
-        var $merges = lastSaved.messageElement = $('#'+id);
-
-        var timeout;
-
-        // drop a method into the lastSaved object which handles messages
-        lastSaved.mergeMessage = function (msg_type, args) {
-            // keep multiple message sequences from fighting over resources
-            timeout && clearTimeout(timeout);
-
-            var formattedMessage = messages[msg_type].replace(/\{\d+\}/g, function (token) {
-                // if you pass an insufficient number of arguments
-                // it will return 'undefined'
-                return args[token.slice(1,-1)];
-            });
-
-            debug(formattedMessage);
-
-            // set the message, handle all types
-            $merges.text(formattedMessage);
-
-            // clear the message box in five seconds
-            // 1.5s message fadeout time
-            timeout = setTimeout(function () {
-                $merges.fadeOut(1500, function () {
-                    $merges.text('');
-                    $merges.show();
-                });
-            },10000);
-        };
-        return $merges;
-    };
-
     var now = function () { return (new Date()).getTime(); };
 
     var getFormToken = Interface.getFormToken;
@@ -1022,10 +982,13 @@ define([
                              toolbar.find('.rtwiki-toolbar-rightside'),
                              messages);
 
-            createMergeMessageElement(toolbar
+            // this function displays a message notifying users that there was a merge
+            lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar
                 .find('.rtwiki-toolbar-rightside'),
                 messages);
 
+            // hide the toggle for autosaving while in realtime because it
+            // conflicts with our own autosaving system
             Interface.setAutosaveHiddenState(true);
 
             socket.onMessage.push(function (evt) {
@@ -1137,15 +1100,8 @@ define([
 
         var checked = (localStorage.getItem(LOCALSTORAGE_DISALLOW)) ? "" : 'checked="checked"';
         var allowRealtimeCbId = uid();
-        $('#mainEditArea .buttons').append(
-            '<div class="rtwiki-allow-outerdiv">' +
-                '<label class="rtwiki-allow-label" for="' + allowRealtimeCbId + '">' +
-                    '<input type="checkbox" class="rtwiki-allow" id="' + allowRealtimeCbId + '" ' +
-                        checked + '" />' +
-                    ' ' + messages.allowRealtime +
-                '</label>' +
-            '</div>'
-        );
+
+        Interface.createAllowRealtimeCheckbox(allowRealtimeCbId, checked, messages.allowRealtime);
 
         // TODO replace sockets with netflux
         var socket;
@@ -1214,8 +1170,7 @@ define([
         };
 
         /*  TODO
-            factor into realtime-frontendd
-        */
+            factor into realtime-frontend */
         if (forceLink.length && !localStorage.getItem(LOCALSTORAGE_DISALLOW)) {
             // ok it's locked.
             var socket = new WebSocket(websocketUrl);
