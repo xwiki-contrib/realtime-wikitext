@@ -340,14 +340,17 @@ define([
         // depends on getFormToken which is in interface.js
     */
     // http://jira.xwiki.org/browse/RTWIKI-29
-    var saveDocument = function (textArea, config, andThen) {
+    /*  FIXME pass in content to be saved (string)
+        get rid of textarea
+    */
+    var saveDocument = function (content, config, andThen) {
         /* RT_event-on_save */
         debug("saving document...");
 
         var data = {
             // title if can be done realtime
             xredirect: '',
-            content: $(textArea).val(),
+            content: content, //$(textArea).val(),
             xeditaction: 'edit',
             // TODO make this translatable
             comment: 'Auto-Saved by Realtime Session',
@@ -568,7 +571,7 @@ define([
                     language:language
                 };
 
-                saveDocument(textArea, options, function () {
+                saveDocument($(textArea).val(), options, function () {
                     // cache this because bumpVersion will increment it
                     var lastVersion = lastSaved.version;
 
