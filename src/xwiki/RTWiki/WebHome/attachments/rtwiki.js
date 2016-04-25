@@ -2,11 +2,16 @@ define([
   'jquery',
   'RTWiki_WebHome_sharejs_textarea',
   'RTWiki_ErrorBox',
-  'RTWiki_WebHome_chainpad'
-], function($, TextArea, ErrorBox) {
+  'RTWiki_WebHome_interface',
+  'RTWiki_WebHome_saver',
+  'RTWiki_WebHome_chainpad',
+], function($, TextArea, ErrorBox, Interface) {
     var ChainPad = window.ChainPad;
     var module = { exports: {} };
 
+    /*  TODO
+        move all your constants into an object that you can inspect more easily
+    */
     var LOCALSTORAGE_DISALLOW = 'rtwiki-disallow';
 
     // Number for a message type which will not interfere with chainpad.
@@ -24,6 +29,11 @@ define([
     // rely on it. Modify with extreme caution and avoid race conditions
     var mainConfig;
 
+    /*  TODO
+        move into realtime-frontend
+
+        Autosaver.js
+    */
     var lastSaved = {
         content: '',
         version: $('html').data('xwiki-version'),
@@ -38,12 +48,14 @@ define([
         isavedSignature: ''
     };
 
+    // TODO autosaver
     var updateLastSaved = function (content) {
         lastSaved.time = now();
         lastSaved.content = content;
         lastSaved.wasEditedLocally = false;
     };
 
+    // TODO autosaver
     var isaveInterrupt = function () {
         if (lastSaved.receivedISAVE) {
             warn("Another client sent an ISAVED message.");
@@ -64,51 +76,10 @@ define([
     debug = function (x) { console.log(x) };
     warn = function (x) { console.log(x) };
 
-    var setStyle = function () {
-        $('head').append([
-            '<style>',
-            '.rtwiki-toolbar {',
-            '    width: 100%;',
-            '    color: #666;',
-            '    font-weight: bold;',
-            '    background-color: #f0f0ee;',
-            '    border: 0, none;',
-            '    height: 24px;',
-            '    float: left;',
-            '}',
-            '.rtwiki-toolbar div {',
-            '    padding: 0 10px;',
-            '    height: 1.5em;',
-            '    background: #f0f0ee;',
-            '    line-height: 25px;',
-            '    height: 24px;',
-            '}',
-            '.rtwiki-toolbar-leftside {',
-            '    float: left;',
-            '}',
-            '.rtwiki-toolbar-rightside {',
-            '    float: right;',
-            '}',
-            '.rtwiki-lag {',
-            '    float: right;',
-            '}',
-            '.rtwiki-merge {',
-            '    float: left',
-            '}',
-            '#secret-merge {',
-            '   opacity: 0;',
-            '}',
-            '#secret-merge:hover {',
-            '   opacity: 1;',
-            '}',
-            '</style>'
-         ].join(''));
-    };
+    var uid = Interface.uid;
 
-    var uid = function () {
-        return 'rtwiki-uid-' + String(Math.random()).substring(2);
-    };
-
+    /*  TODO move into Interface?
+    */
     var updateUserList = function (myUserName, listElement, userList, messages) {
         var meIdx = userList.indexOf(myUserName);
         if (meIdx === -1) {
@@ -157,47 +128,11 @@ define([
         listElement.text(messages.editingWith + ' ' + userListOut.join(', '));
     };
 
-    var createUserList = function (realtime, myUserName, container, messages) {
-        var id = uid();
-        $(container).prepend('<div class="rtwiki-userlist" id="'+id+'"></div>');
-        var listElement = $('#'+id);
-        return listElement;
-    };
+    /*  TODO
+        move into Interface (after factoring out more arguments)
 
-    var checkLag = function (realtime, lagElement, messages) {
-        var lag = realtime.getLag();
-        var lagSec = lag.lag/1000;
-        var lagMsg = messages.lag + ' ';
-        if (lag.waiting && lagSec > 1) {
-            lagMsg += "?? " + Math.floor(lagSec);
-        } else {
-            lagMsg += lagSec;
-        }
-        lagElement.text(lagMsg);
-    };
-
-    var createLagElement = function (socket, realtime, container, messages) {
-        var id = uid();
-        $(container).append('<div class="rtwiki-lag" id="'+id+'"></div>');
-        var lagElement = $('#'+id);
-        var intr = setInterval(function () {
-            checkLag(realtime, lagElement, messages);
-        }, 3000);
-        socket.onClose.push(function () { clearTimeout(intr); });
-        return lagElement;
-    };
-
-    var createRealtimeToolbar = function (container) {
-        var id = uid();
-        $(container).prepend(
-            '<div class="rtwiki-toolbar" id="' + id + '">' +
-                '<div class="rtwiki-toolbar-leftside"></div>' +
-                '<div class="rtwiki-toolbar-rightside"></div>' +
-            '</div>'
-        );
-        return $('#'+id);
-    };
-
+        // maybe this should go in autosaver instead?
+    */
     var createMergeMessageElement = function (container, messages) {
         var id = uid();
         $(container).prepend( '<div class="rtwiki-merge" id="'+id+'"></div>');
@@ -235,10 +170,13 @@ define([
 
     var now = function () { return (new Date()).getTime(); };
 
-    var getFormToken = function () {
-        return $('meta[name="form_token"]').attr('content');
-    };
+    var getFormToken = Interface.getFormToken;
 
+    /*  TODO
+        move into Interface
+
+        watch out for 'debug'
+    */
     var getDocumentSection = function (sectionNum, andThen) {
         debug("getting document section...");
         $.ajax({
@@ -264,6 +202,9 @@ define([
         });
     };
 
+    /*  TODO
+        move into interface
+    */
     var getIndexOfDocumentSection = function (documentContent, sectionNum, andThen) {
         getDocumentSection(sectionNum, function (err, content) {
             if (err) {
@@ -290,6 +231,9 @@ define([
         });
     };
 
+    /*  TODO
+        move into Interface
+    */
     var seekToSection = function (textArea, andThen) {
         var sect = window.location.hash.match(/^#!([\W\w]*&)?section=([0-9]+)/);
         if (!sect || !sect[2]) {
@@ -312,6 +256,9 @@ define([
         })
     };
 
+    /* TODO
+        move into realtime-frontend?
+    */
     /* retrieves attributes about the local document for the purposes of ajax merge
         just data-xwiki-document and lastSaved.version
     */
@@ -336,6 +283,12 @@ define([
         return result;
     };
 
+    /*  TODO
+        Currently this takes a textarea and a callback.
+        but we want to move it out into realtime-frontend.
+        To generalize it, we should get the value of the textarea instead,
+        and just expect a string (the content of the document to be saved)
+    */
     var ajaxMerge = function (textArea, cb) {
         // outputSyntax=plain is no longer necessary
         var url = mainConfig.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
@@ -378,6 +331,9 @@ define([
         });
     };
 
+    /*  TODO
+        move into realtime-frontend
+    */
     // check a serverside api for the version string of the document
     var ajaxVersion = function (cb) {
         var url = mainConfig.ajaxVersionUrl + '?xpage=plain';
@@ -396,6 +352,11 @@ define([
         });
     };
 
+    /*  TODO
+        move into realtime-frontend
+
+        //
+    */
     var bumpVersion = function (socket, channel, myUserName, cb) {
         ajaxVersion(function (e, out) {
             if (e) {
@@ -411,6 +372,13 @@ define([
         });
     };
 
+    /*  TODO
+        pass in value instead of textarea
+        move into realtime-frontend
+
+        // FIXME
+        // depends on getFormToken which is in interface.js
+    */
     // http://jira.xwiki.org/browse/RTWIKI-29
     var saveDocument = function (textArea, config, andThen) {
         /* RT_event-on_save */
@@ -456,6 +424,9 @@ define([
         });
     };
 
+    /*  TODO
+        move into realtime-frontend
+    */
     // sends an ISAVED message
     var saveMessage=function (socket, channel, myUserName, version) {
         debug("saved document"); // RT_event-on_save
@@ -469,6 +440,14 @@ define([
         );
     };
 
+    /*  FIXME
+        this will yield a false positive for any document which has 'template'
+        in its URL. /\?.*template/.test(window.location.href) might be a less
+        brittle solution.
+
+        TODO
+        we might want this in realtime-frontend
+    */
     /**
      * If we are editing a page which does not exist and creating it from a template
      * then we should not auto-save the document otherwise it will cause RTWIKI-16
@@ -477,6 +456,9 @@ define([
         return (window.location.href.indexOf('template=') !== -1);
     };
 
+    /*  TODO
+        move into realtime-frontend
+    */
     var presentMergeDialog = function(question, labelDefault, choiceDefault, labelAlternative, choiceAlternative){
         var behave = {
            onYes: choiceDefault,
@@ -493,6 +475,9 @@ define([
         new XWiki.widgets.ConfirmationBox(behave, param);
     };
 
+    /*  TODO
+        move this into realtime-frontend
+    */
     var destroyDialog = function (cb) {
         var $box = $('.xdialog-box.xdialog-box-confirmation'),
             $question = $box.find('.question'),
@@ -505,10 +490,20 @@ define([
         }
     };
 
+    /*  TODO
+        move into realtime-frontend
+        autosaver
+
+        // only used within 'createSaver'
+    */
     var redirectToView = function () {
         window.location.href = window.XWiki.currentDocument.getURL('view');
     };
 
+    /*  TODO
+        move into realtime-frontend
+        autosaver
+    */
     /*
         createSaver contains some of the more complicated logic in this script
         clients check for remote changes on random intervals
@@ -951,23 +946,20 @@ define([
         socket.onClose.push(function () {
             clearTimeout(to);
         });
-    };
+    }; // END createSaver
 
+    /*  TODO
+        replace with Netflux
+    */
     var isSocketDisconnected = function (socket, realtime) {
         return socket.readyState === socket.CLOSING ||
             socket.readyState === socket.CLOSED ||
             (realtime.getLag().waiting && realtime.getLag().lag > MAX_LAG_BEFORE_DISCONNECT);
     };
 
-    var setAutosaveHiddenState = function (hidden) {
-        var elem = $('#autosaveControl');
-        if (hidden) {
-            elem.hide();
-        } else {
-            elem.show();
-        }
-    };
-
+    /*  TODO
+        replace sockets with Netflux
+    */
     var startWebSocket = function (textArea,
                                    toolbarContainer,
                                    websocketUrl,
@@ -981,7 +973,7 @@ define([
         debug("Opening websocket");
         localStorage.removeItem(LOCALSTORAGE_DISALLOW);
 
-        var toolbar = createRealtimeToolbar(toolbarContainer);
+        var toolbar = Interface.createRealtimeToolbar(toolbarContainer);
 
         // TODO figure out a way to fake the back end not being present so that
         // we can properly test this bug.
@@ -1021,14 +1013,11 @@ define([
         socket.onopen = function (evt) {
             var initializing = true;
 
-            var userListElement = createUserList(realtime,
-                                                 userName,
-                                                 toolbar.find('.rtwiki-toolbar-leftside'),
-                                                 messages);
+            var userListElement = Interface.createUserList(toolbar.find('.rtwiki-toolbar-leftside'));
 
             userListElement.text(messages.initializing);
 
-            createLagElement(socket,
+            Interface.createLagElement(socket,
                              realtime,
                              toolbar.find('.rtwiki-toolbar-rightside'),
                              messages);
@@ -1037,7 +1026,7 @@ define([
                 .find('.rtwiki-toolbar-rightside'),
                 messages);
 
-            setAutosaveHiddenState(true);
+            Interface.setAutosaveHiddenState(true);
 
             socket.onMessage.push(function (evt) {
                 verbose(evt.data);
@@ -1099,7 +1088,7 @@ define([
         socket.onClose.push(function () {
             clearTimeout(to);
             toolbar.remove();
-            setAutosaveHiddenState(false);
+            Interface.setAutosaveHiddenState(false);
         });
 
         return socket;
@@ -1126,6 +1115,12 @@ define([
         return true;
     };
 
+    /*  TODO
+        add comments to figure out exactly what this does
+        pull out parts that can be reused into realtime-frontend
+
+        move into interface module?
+    */
     var editor = function (websocketUrl, userName, messages, channel, demoMode, language) {
         var contentInner = $('#xwikieditcontentinner');
         var textArea = contentInner.find('#content');
@@ -1138,7 +1133,7 @@ define([
 
         if (checkSectionEdit()) { return; }
 
-        setStyle();
+        Interface.setStyle();
 
         var checked = (localStorage.getItem(LOCALSTORAGE_DISALLOW)) ? "" : 'checked="checked"';
         var allowRealtimeCbId = uid();
@@ -1152,6 +1147,7 @@ define([
             '</div>'
         );
 
+        // TODO replace sockets with netflux
         var socket;
         var checkboxClick = function (checked) {
             if (checked || demoMode) {
@@ -1198,6 +1194,12 @@ define([
         // but we can hunt for the force button.
         var forceLink = $('a[href$="&force=1"][href*="/edit/"]');
 
+        /*  TODO
+            group with lock screen code
+
+            TODO
+            move into realtime-frontend
+        */
         var hasActiveRealtimeSession = function () {
             forceLink.text(messages.joinSession);
             var link = forceLink.attr('href').replace(/\?(.*)$/, function (all, args) {
@@ -1211,6 +1213,9 @@ define([
             forceLink.attr('href', link + '&editor=wiki');
         };
 
+        /*  TODO
+            factor into realtime-frontendd
+        */
         if (forceLink.length && !localStorage.getItem(LOCALSTORAGE_DISALLOW)) {
             // ok it's locked.
             var socket = new WebSocket(websocketUrl);
