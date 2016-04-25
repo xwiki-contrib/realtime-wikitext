@@ -993,6 +993,10 @@ define([
 
             socket.onMessage.push(function (evt) {
                 verbose(evt.data);
+
+                /*  FIXME this is a problem because we want to move to Netflux
+                    and it's not so easy to send custom message types, it seems
+                */
                 // shortcircuit so chainpad doesn't complain about bad messages
                 if (/:\[5000,/.test(evt.data)) { return; }
                 realtime.message(evt.data);
@@ -1001,6 +1005,7 @@ define([
                 socket.send(message);
             });
 
+            // package this up into 'setEditable'
             $(textArea).attr("disabled", "disabled");
 
             realtime.onUserListChange(function (userList) {

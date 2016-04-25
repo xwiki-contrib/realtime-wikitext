@@ -7,6 +7,8 @@ define([
 ], function ($) {
     var Interface = {};
 
+    var debug = function (x) { console.log(x); };
+
     var uid = Interface.uid = function () {
         return 'rtwiki-uid-' + String(Math.random()).substring(2);
     };
