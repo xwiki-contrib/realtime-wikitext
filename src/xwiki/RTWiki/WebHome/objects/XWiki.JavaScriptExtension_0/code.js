@@ -32,6 +32,7 @@
         RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
         RTWiki_WebHome_sharejs_textarea: "$doc.getAttachmentURL('sharejs_textarea.js')",
         RTWiki_WebHome_interface: "$doc.getAttachmentURL('interface.js')",
+        RTWiki_WebHome_section: "$doc.getAttachmentURL('section.js')",
         RTWiki_WebHome_saver: "$doc.getAttachmentURL('saver.js')",
         RTWiki_WebHome_rtwiki: "$doc.getAttachmentURL('rtwiki.js')" + "?cb=123",
         RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',

@@ -163,5 +163,54 @@ define([
         };
     };
 
+    var updateUserList = Interface.updateUserList = function (myUserName, listElement, userList, messages) {
+        var meIdx = userList.indexOf(myUserName);
+        if (meIdx === -1) {
+            listElement.text(messages.disconnected);
+            return;
+        }
+        var userMap = {};
+        userMap[messages.myself] = 1;
+        userList.splice(meIdx, 1);
+        for (var i = 0; i < userList.length; i++) {
+            if (userList[i] === myUserName) {
+                continue;
+            }
+            var user;
+            if (userList[i].indexOf('xwiki:XWiki.XWikiGuest') === 0) {
+                if (userMap.Guests) {
+                    user = messages.guests;
+                } else {
+                    user = messages.guest;
+                }
+            } else {
+                user = userList[i].replace(/^.*-([^-]*)%2d[0-9]*$/, function(all, one) {
+                    return decodeURIComponent(one);
+                });
+            }
+            userMap[user] = userMap[user] || 0;
+            if (user === messages.guest && userMap[user] > 0) {
+                userMap.Guests = userMap[user];
+                delete userMap[user];
+                user = messages.guests;
+            }
+            userMap[user]++;
+        }
+        var userListOut = [];
+        for (var name in userMap) {
+            if (userMap[name] > 1) {
+                userListOut.push(userMap[name] + " " + name);
+            } else {
+                userListOut.push(name);
+            }
+        }
+        if (userListOut.length > 1) {
+            userListOut[userListOut.length-1] =
+                messages.and + ' ' + userListOut[userListOut.length-1];
+        }
+        listElement.text(messages.editingWith + ' ' + userListOut.join(', '));
+    };
+
+
     return Interface;
 });
