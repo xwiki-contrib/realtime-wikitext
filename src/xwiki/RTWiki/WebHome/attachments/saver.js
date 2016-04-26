@@ -176,6 +176,11 @@ define([
         });
     };
 
+    var getFormToken = Saver.getFormToken = function () {
+        return $('meta[name="form_token"]').attr('content');
+    };
+
+
     /*  TODO
         pass in value instead of textarea
         move into realtime-frontend

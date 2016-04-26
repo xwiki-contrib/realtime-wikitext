@@ -107,10 +107,6 @@ define([
         );
     };
 
-    var getFormToken = Interface.getFormToken = function () {
-        return $('meta[name="form_token"]').attr('content');
-    };
-
     /*
         This hides a DIFFERENT autosave, not the one included in the realtime
         This is a checkbox which is off by default. We hide it so that it can't

@@ -34,8 +34,6 @@ define([
 
     var now = function () { return (new Date()).getTime(); };
 
-    var getFormToken = Interface.getFormToken;
-
     /*  FIXME
         this will yield a false positive for any document which has 'template'
         in its URL. /\?.*template/.test(window.location.href) might be a less
@@ -301,7 +299,8 @@ define([
         var forceLink = $('a[href$="&force=1"][href*="/edit/"]');
 
         /*  TODO
-            group with lock screen code
+                group with lock screen code
+                also add 'prependLink' from RTWYSIWYG
 
             TODO
             move into realtime-frontend
