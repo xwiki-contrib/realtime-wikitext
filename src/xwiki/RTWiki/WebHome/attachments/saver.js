@@ -286,9 +286,13 @@ define([
         of unnecessary saves, as well as the number of unnecessary merges.
     */
     var createSaver = Saver.create = function (socket, channel, myUserName, textArea, demoMode, language, messages) {
-        // never used?
+
+        /*  TODO called from sharejs_textarea
+            this is deprecated from realtime-input
+
+            you should call Saver.setLocalEditFlag(true) from onLocal */
         socket.realtime.localChange = function (condition) {
-            lastSaved.wasEditedLocally = condition;
+            setLocalEditFlag(condition);
         };
 
         lastSaved.time = now();
