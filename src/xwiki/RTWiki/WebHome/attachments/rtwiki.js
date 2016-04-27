@@ -289,6 +289,9 @@ define([
         config.language = language;
         mainConfig = config;
 
+        // configure Saver with the merge URL and language settings
+        Saver.configure(mainConfig);
+
         if (!websocketUrl) {
             throw new Error("No WebSocket URL, please ensure Realtime Backend is installed.");
         }

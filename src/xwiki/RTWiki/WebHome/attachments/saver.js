@@ -19,7 +19,16 @@ define([
 
     var now = function () { return (new Date()).getTime(); };
 
+    
+
     var Saver = {};
+
+    var mainConfig = Saver.mainConfig = {};
+
+    var configure = Saver.configure = function (config) {
+        mainConfig.ajaxMergeUrl =  config.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
+        mainConfig.language = config.language;
+    };
 
     /*  TODO
         move into realtime-frontend
@@ -69,8 +78,9 @@ define([
     var getDocumentStatistics = function () {
         var $html = $('html'),
             fields = [
-// 'wiki', 'space', 'page',
-                'document'
+                // 'space', 'page',
+                'wiki',
+                'document' // includes space and page
             ],
             result = {};
 
@@ -111,6 +121,9 @@ define([
             success: function (data) {
                 try {
                     var merge=JSON.parse(data);
+
+                    window.alert("Merged!");
+                    window.ansuz_merge = merge;
                     var error = merge.conflicts &&
                         merge.conflicts.length &&
                         merge.conflicts[0].formattedMessage;
@@ -294,6 +307,10 @@ define([
     */
     var redirectToView = function () {
         window.location.href = window.XWiki.currentDocument.getURL('view');
+    };
+
+    var setLocalEditFlag = Saver.setLocalEditFlag = function (condition) {
+        lastSaved.wasEditedLocally = condition;
     };
 
     /*  TODO
