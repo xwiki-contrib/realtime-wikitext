@@ -30,11 +30,6 @@ define([
         mainConfig.language = config.language;
     };
 
-    /*  TODO
-        move into realtime-frontend
-
-        Autosaver.js
-    */
     var lastSaved = Saver.lastSaved = {
         content: '',
         version: $('html').data('xwiki-version'),
@@ -49,14 +44,12 @@ define([
         isavedSignature: ''
     };
 
-    // TODO autosaver
     var updateLastSaved = Saver.update = function (content) {
         lastSaved.time = now();
         lastSaved.content = content;
         lastSaved.wasEditedLocally = false;
     };
 
-    // TODO autosaver
     var isaveInterrupt = Saver.interrupt = function () {
         if (lastSaved.receivedISAVE) {
             warn("Another client sent an ISAVED message.");
@@ -69,9 +62,6 @@ define([
         return false;
     };
 
-    /* TODO
-        move into realtime-frontend?
-    */
     /* retrieves attributes about the local document for the purposes of ajax merge
         just data-xwiki-document and lastSaved.version
     */
@@ -97,12 +87,6 @@ define([
         return result;
     };
 
-    /*  TODO
-        Currently this takes a textarea and a callback.
-        but we want to move it out into realtime-frontend.
-        To generalize it, we should get the value of the textarea instead,
-        and just expect a string (the content of the document to be saved)
-    */
     var ajaxMerge = function (content, cb) {
         // outputSyntax=plain is no longer necessary
         var url = mainConfig.ajaxMergeUrl + '?xpage=plain&outputSyntax=plain';
@@ -148,9 +132,6 @@ define([
         });
     };
 
-    /*  TODO
-        move into realtime-frontend
-    */
     // check a serverside api for the version string of the document
     var ajaxVersion = function (cb) {
         var url = mainConfig.ajaxVersionUrl + '?xpage=plain';
@@ -169,11 +150,6 @@ define([
         });
     };
 
-    /*  TODO
-        move into realtime-frontend
-
-        //
-    */
     var bumpVersion = function (socket, channel, myUserName, cb) {
         ajaxVersion(function (e, out) {
             if (e) {
@@ -194,17 +170,7 @@ define([
     };
 
 
-    /*  TODO
-        pass in value instead of textarea
-        move into realtime-frontend
-
-        // FIXME
-        // depends on getFormToken which is in interface.js
-    */
     // http://jira.xwiki.org/browse/RTWIKI-29
-    /*  FIXME pass in content to be saved (string)
-        get rid of textarea
-    */
     var saveDocument = function (content, config, andThen) {
         /* RT_event-on_save */
         debug("saving document...");
@@ -212,7 +178,7 @@ define([
         var data = {
             // title if can be done realtime
             xredirect: '',
-            content: content, //$(textArea).val(),
+            content: content,
             xeditaction: 'edit',
             // TODO make this translatable
             comment: 'Auto-Saved by Realtime Session',
@@ -249,9 +215,6 @@ define([
         });
     };
 
-    /*  TODO
-        move into realtime-frontend
-    */
     // sends an ISAVED message
     var saveMessage=function (socket, channel, myUserName, version) {
         debug("saved document"); // RT_event-on_save
@@ -265,9 +228,6 @@ define([
         );
     };
 
-    /*  TODO
-        move into realtime-frontend
-    */
     var presentMergeDialog = function(question, labelDefault, choiceDefault, labelAlternative, choiceAlternative){
         var behave = {
            onYes: choiceDefault,
@@ -284,9 +244,6 @@ define([
         new XWiki.widgets.ConfirmationBox(behave, param);
     };
 
-    /*  TODO
-        move this into realtime-frontend
-    */
     var destroyDialog = function (cb) {
         var $box = $('.xdialog-box.xdialog-box-confirmation'),
             $question = $box.find('.question'),
@@ -299,24 +256,16 @@ define([
         }
     };
 
-    /*  TODO
-        move into realtime-frontend
-        autosaver
-
-        // only used within 'createSaver'
-    */
+    // only used within 'createSaver'
     var redirectToView = function () {
         window.location.href = window.XWiki.currentDocument.getURL('view');
     };
 
+    // FIXME have rtwiki call this on local edits
     var setLocalEditFlag = Saver.setLocalEditFlag = function (condition) {
         lastSaved.wasEditedLocally = condition;
     };
 
-    /*  TODO
-        move into realtime-frontend
-        autosaver
-    */
     /*
         createSaver contains some of the more complicated logic in this script
         clients check for remote changes on random intervals
