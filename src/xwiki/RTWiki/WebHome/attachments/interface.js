@@ -16,31 +16,6 @@ define([
     var setStyle = Interface.setStyle = function () {
         $('head').append([
             '<style>',
-            '.rtwiki-toolbar {',
-            '    width: 100%;',
-            '    color: #666;',
-            '    font-weight: bold;',
-            '    background-color: #f0f0ee;',
-            '    border: 0, none;',
-            '    height: 24px;',
-            '    float: left;',
-            '}',
-            '.rtwiki-toolbar div {',
-            '    padding: 0 10px;',
-            '    height: 1.5em;',
-            '    background: #f0f0ee;',
-            '    line-height: 25px;',
-            '    height: 24px;',
-            '}',
-            '.rtwiki-toolbar-leftside {',
-            '    float: left;',
-            '}',
-            '.rtwiki-toolbar-rightside {',
-            '    float: right;',
-            '}',
-            '.rtwiki-lag {',
-            '    float: right;',
-            '}',
             '.rtwiki-merge {',
             '    float: left',
             '}',
@@ -52,47 +27,6 @@ define([
             '}',
             '</style>'
          ].join(''));
-    };
-
-    var createUserList = Interface.createUserList = function (/*realtime, myUserName,*/ container /*, messages*/) {
-        var id = uid();
-        $(container).prepend('<div class="rtwiki-userlist" id="'+id+'"></div>');
-        var listElement = $('#'+id);
-        return listElement;
-    };
-
-    var createRealtimeToolbar = Interface.createRealtimeToolbar = function (container) {
-        var id = uid();
-        $(container).prepend(
-            '<div class="rtwiki-toolbar" id="' + id + '">' +
-                '<div class="rtwiki-toolbar-leftside"></div>' +
-                '<div class="rtwiki-toolbar-rightside"></div>' +
-            '</div>'
-        );
-        return $('#'+id);
-    };
-
-    var checkLag = Interface.checkLag = function (realtime, lagElement, messages) {
-        var lag = realtime.getLag();
-        var lagSec = lag.lag/1000;
-        var lagMsg = messages.lag + ' ';
-        if (lag.waiting && lagSec > 1) {
-            lagMsg += "?? " + Math.floor(lagSec);
-        } else {
-            lagMsg += lagSec;
-        }
-        lagElement.text(lagMsg);
-    };
-
-    var createLagElement = Interface.createLagElement = function (socket, realtime, container, messages) {
-        var id = uid();
-        $(container).append('<div class="rtwiki-lag" id="'+id+'"></div>');
-        var lagElement = $('#'+id);
-        var intr = setInterval(function () {
-            checkLag(realtime, lagElement, messages);
-        }, 3000);
-        socket.onClose.push(function () { clearTimeout(intr); });
-        return lagElement;
     };
 
     var createAllowRealtimeCheckbox = Interface.createAllowRealtimeCheckbox = function (id, checked, message) {
@@ -158,55 +92,6 @@ define([
             },10000);
         };
     };
-
-    var updateUserList = Interface.updateUserList = function (myUserName, listElement, userList, messages) {
-        var meIdx = userList.indexOf(myUserName);
-        if (meIdx === -1) {
-            listElement.text(messages.disconnected);
-            return;
-        }
-        var userMap = {};
-        userMap[messages.myself] = 1;
-        userList.splice(meIdx, 1);
-        for (var i = 0; i < userList.length; i++) {
-            if (userList[i] === myUserName) {
-                continue;
-            }
-            var user;
-            if (userList[i].indexOf('xwiki:XWiki.XWikiGuest') === 0) {
-                if (userMap.Guests) {
-                    user = messages.guests;
-                } else {
-                    user = messages.guest;
-                }
-            } else {
-                user = userList[i].replace(/^.*-([^-]*)%2d[0-9]*$/, function(all, one) {
-                    return decodeURIComponent(one);
-                });
-            }
-            userMap[user] = userMap[user] || 0;
-            if (user === messages.guest && userMap[user] > 0) {
-                userMap.Guests = userMap[user];
-                delete userMap[user];
-                user = messages.guests;
-            }
-            userMap[user]++;
-        }
-        var userListOut = [];
-        for (var name in userMap) {
-            if (userMap[name] > 1) {
-                userListOut.push(userMap[name] + " " + name);
-            } else {
-                userListOut.push(name);
-            }
-        }
-        if (userListOut.length > 1) {
-            userListOut[userListOut.length-1] =
-                messages.and + ' ' + userListOut[userListOut.length-1];
-        }
-        listElement.text(messages.editingWith + ' ' + userListOut.join(', '));
-    };
-
 
     return Interface;
 });
