@@ -1,15 +1,15 @@
 define([
     'RTWiki_ErrorBox',
-    'RTWiki_WebHome_realtime_input',
-    'RTWiki_WebHome_toolbar',
-    'RTWiki_WebHome_cursor',
-    'RTWiki_WebHome_json_ot',
-    'RTWiki_WebHome_tests',
+    'RTFrontend_realtime_input',
+    'RT_toolbar',
+    'RTFrontend_cursor',
+    'RTFrontend_json_ot',
+    'RTFrontend_tests',
     'json.sortify',
-    'RTWiki_WebHome_text_patcher',
-    'RTWiki_WebHome_interface',
-    'RTWiki_WebHome_saver',
-    'RTWiki_WebHome_diffDOM',
+    'RTFrontend_text_patcher',
+    'RTFrontend_interface',
+    'RTFrontend_saver',
+    'RTFrontend_diffDOM',
     'jquery'
 ], function (ErrorBox, realtimeInput, Toolbar, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver) {
     var $ = window.jQuery;
@@ -101,6 +101,7 @@ define([
         // DISALLOW REALTIME END
 
         // configure Saver with the merge URL and language settings
+        saverConfig.ErrorBox = ErrorBox;
         Saver.configure(saverConfig, language);
 
         var $editButtons = $('.buttons');
@@ -224,7 +225,12 @@ define([
                     .find('.rtwiki-toolbar-rightside'),
                     saverConfig.messages);
                 Saver.setLastSavedContent($textArea.val());
-                Saver.create(WebsocketURL, channel+"events", info.realtime, $textArea, DEMO_MODE, language, saverConfig.messages);
+                var textConfig = {
+                  setTextValue: function(newText) { $textArea.val(newText); },
+                  getTextValue: function() { return $textArea.val(); },
+                  messages: saverConfig.messages
+                }
+                Saver.create(WebsocketURL, channel+"events", info.realtime, textConfig, DEMO_MODE);
             };
 
             var onReady = realtimeOptions.onReady = function (info) {

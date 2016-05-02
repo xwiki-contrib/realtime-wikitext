@@ -31,42 +31,37 @@
         mergeDialog_keepRealtime: "Overwrite all changes with the current realtime version",
         mergeDialog_keepRemote:   "Overwrite all changes with the current remote version"
     };
-    /*#*var PATHS = {
-        RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
-        RTWiki_WebHome_sharejs_textarea: "$doc.getAttachmentURL('sharejs_textarea.js')",
-        RTWiki_WebHome_rtwiki: "$doc.getAttachmentURL('rtwiki.js')" + "?cb=123",
-        RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
-        RTWiki_GetKey: "$xwiki.getURL('RTWiki.GetKey','jsx')"
-    };*#*/
+
+    #set ($document = $xwiki.getDocument('RTFrontend.WebHome'))
     var PATHS = {
-        RTWiki_WebHome_chainpad: "$doc.getAttachmentURL('chainpad.js')",
-        RTWiki_WebHome_realtime_netflux: "$doc.getAttachmentURL('realtime-wikitext.js')",
-        RTWiki_WebHome_realtime_input: "$doc.getAttachmentURL('realtime-input.js')",
+        RTWiki_realtime_netflux: "$doc.getAttachmentURL('realtime-wikitext.js')",
+        RT_toolbar: "$doc.getAttachmentURL('toolbar.js')",
+        RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
 
-        RTWiki_WebHome_saver: "$doc.getAttachmentURL('saver.js')",
-        RTWiki_WebHome_interface: "$doc.getAttachmentURL('interface.js')",
+        RTFrontend_chainpad: "$document.getAttachmentURL('chainpad.js')",
+        RTFrontend_realtime_input: "$document.getAttachmentURL('realtime-input.js')",
 
-        // RTWiki_WebHome_convert: "$doc.getAttachmentURL('convert.js')",
-        RTWiki_WebHome_toolbar: "$doc.getAttachmentURL('toolbar_wiki.js')",
-        RTWiki_WebHome_cursor: "$doc.getAttachmentURL('cursor.js')",
-        RTWiki_WebHome_json_ot: "$doc.getAttachmentURL('json-ot.js')",
+        RTFrontend_saver: "$document.getAttachmentURL('saver.js')",
+        RTFrontend_interface: "$document.getAttachmentURL('interface.js')",
 
-        RTWiki_WebHome_hyperjson: "$doc.getAttachmentURL('hyperjson.js')",
-        RTWiki_WebHome_hyperscript: "$doc.getAttachmentURL('hyperscript.js')",
+        RTFrontend_cursor: "$document.getAttachmentURL('cursor.js')",
+        RTFrontend_json_ot: "$document.getAttachmentURL('json-ot.js')",
 
-        RTWiki_WebHome_diffDOM: "$doc.getAttachmentURL('diffDOM.js')",
+        RTFrontend_hyperjson: "$document.getAttachmentURL('hyperjson.js')",
+        RTFrontend_hyperscript: "$document.getAttachmentURL('hyperscript.js')",
 
-        RTWiki_WebHome_treesome: "$doc.getAttachmentURL('treesome.js')",
-        RTWiki_WebHome_messages: "$doc.getAttachmentURL('messages.js')",
-        RTWiki_WebHome_promises: "$doc.getAttachmentURL('es6-promise.min.js')",
-        'json.sortify': "$doc.getAttachmentURL('JSON.sortify.js')",
-        RTWiki_WebHome_netflux: "$doc.getAttachmentURL('netflux-client.js')",
-        RTWiki_WebHome_text_patcher: "$doc.getAttachmentURL('TextPatcher.js')",
-        RTWiki_WebHome_tests: "$doc.getAttachmentURL('TypingTests.js')",
+        RTFrontend_diffDOM: "$document.getAttachmentURL('diffDOM.js')",
 
-        RTWiki_WebHome_rangy: "$doc.getAttachmentURL('rangy-core.min.js')",
-        RTWiki_ErrorBox: "$xwiki.getURL('RTWysiwyg.ErrorBox','jsx')" + '?minify=false',
-        RTWiki_GetKey: "$xwiki.getURL('RTWiki.GetKey','jsx')"
+        RTFrontend_treesome: "$document.getAttachmentURL('treesome.js')",
+        RTFrontend_messages: "$document.getAttachmentURL('messages.js')",
+        RTFrontend_promises: "$document.getAttachmentURL('es6-promise.min.js')",
+        'json.sortify': "$document.getAttachmentURL('JSON.sortify.js')",
+        RTFrontend_netflux: "$document.getAttachmentURL('netflux-client.js')",
+        RTFrontend_text_patcher: "$document.getAttachmentURL('TextPatcher.js')",
+        RTFrontend_tests: "$document.getAttachmentURL('TypingTests.js')",
+        RTFrontend_rangy: "$document.getAttachmentURL('rangy-core.min.js')",
+
+        RTFrontend_GetKey: "$xwiki.getURL('RTFrontend.GetKey','jsx')"
     };
     var CONFIG = {
         ajaxMergeUrl : "$xwiki.getURL('RTWiki.Ajax','get')",
@@ -77,9 +72,10 @@
     var wiki = encodeURIComponent(XWiki.currentWiki);
     var space = encodeURIComponent(XWiki.currentSpace);
     var page = encodeURIComponent(XWiki.currentPage);
-    PATHS.RTWiki_GetKey += '?minify=false&wiki=' + wiki + '&space=' + space + '&page=' + page;
+    PATHS.RTFrontend_GetKey = PATHS.RTFrontend_GetKey.replace(/\.js$/, '')+'?minify=false&wiki=' + wiki + '&space=' + space + '&page=' + page;
 
     for (var path in PATHS) { PATHS[path] = PATHS[path].replace(/\.js$/, ''); }
+    //for (var path in PATHS) { PATHS[path] = PATHS[path] + '?cb='+(new Date()).getTime(); }
     require.config({paths:PATHS});
 
     if (!window.XWiki) {
@@ -127,7 +123,7 @@
         };
     };
     var launchRealtime = function (config) {
-        require(['jquery', 'RTWiki_WebHome_realtime_netflux', 'RTWiki_GetKey'], function ($, RTWysiwyg, key) {
+        require(['jquery', 'RTWiki_realtime_netflux', 'RTFrontend_GetKey'], function ($, RTWysiwyg, key) {
             if (RTWysiwyg && RTWysiwyg.main) {
                 if (key.error !== 'none') { throw new Error("channel key is not right: [" + key + "]"); }
                 var channel = key.key + config.language + '-rtwiki';
@@ -168,7 +164,7 @@
         prependLink(link, MESSAGES.wikiSessionInProgress);
     };
     var checkSocket = function (config, callback) {
-        require(['RTWiki_GetKey'], function (key) {
+        require(['RTFrontend_GetKey'], function (key) {
             if (key.error !== 'none') { throw new Error("channel key is not right: [" + key + "]"); }
             var channel = key.key + config.language + '-rtwiki';
             var socket = new WebSocket(config.websocketURL);
@@ -232,7 +228,7 @@
                 console.log("Couldn't find an active realtime session");
             }
         });
-    } else if (window.XWiki.editor === 'wiki' || demoMode) {
+    } else if (window.XWiki.editor === 'wiki' || DEMO_MODE) {
         // using CKEditor and realtime is allowed: start the realtime
         launchRealtime(config);
     }

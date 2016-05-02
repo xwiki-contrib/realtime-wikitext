@@ -1,5 +1,5 @@
 define([
-    'RTWysiwyg_WebHome_messages'
+    'RTFrontend_messages'
 ], function (Messages) {
 
     /** Tyoe/name of the editor */
