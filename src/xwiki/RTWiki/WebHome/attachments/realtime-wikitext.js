@@ -1,7 +1,7 @@
 define([
     'RTWiki_ErrorBox',
+    'RTWiki_toolbar',
     'RTFrontend_realtime_input',
-    'RT_toolbar',
     'RTFrontend_cursor',
     'RTFrontend_json_ot',
     'RTFrontend_tests',
@@ -11,7 +11,7 @@ define([
     'RTFrontend_saver',
     'RTFrontend_diffDOM',
     'jquery'
-], function (ErrorBox, realtimeInput, Toolbar, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver) {
+], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver) {
     var $ = window.jQuery;
     var DiffDom = window.diffDOM;
 
@@ -226,7 +226,12 @@ define([
                     saverConfig.messages);
                 Saver.setLastSavedContent($textArea.val());
                 var textConfig = {
-                  setTextValue: function(newText) { $textArea.val(newText); },
+                  formId: "edit", // Id of the wiki page form
+                  isHTML: false, // If text content is HTML (Wysiwyg), it has to be converted before the merge
+                  setTextValue: function(newText, callback) {
+                      $textArea.val(newText);
+                      callback();
+                  },
                   getTextValue: function() { return $textArea.val(); },
                   messages: saverConfig.messages
                 }
