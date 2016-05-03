@@ -35,7 +35,7 @@
     #set ($document = $xwiki.getDocument('RTFrontend.WebHome'))
     var PATHS = {
         RTWiki_realtime_netflux: "$doc.getAttachmentURL('realtime-wikitext.js')",
-        RT_toolbar: "$doc.getAttachmentURL('toolbar.js')",
+        RTWiki_toolbar: "$doc.getAttachmentURL('toolbar.js')",
         RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
 
         RTFrontend_chainpad: "$document.getAttachmentURL('chainpad.js')",
@@ -62,10 +62,6 @@
         RTFrontend_rangy: "$document.getAttachmentURL('rangy-core.min.js')",
 
         RTFrontend_GetKey: "$xwiki.getURL('RTFrontend.GetKey','jsx')"
-    };
-    var CONFIG = {
-        ajaxMergeUrl : "$xwiki.getURL('RTWiki.Ajax','get')",
-        ajaxVersionUrl : "$xwiki.getURL('RTWiki.Version','get')"
     };
     // END_VELOCITY
 
@@ -113,8 +109,8 @@
 
         return {
             saverConfig: {
-                ajaxMergeUrl: "$xwiki.getURL('RTWiki.Ajax','get')",
-                ajaxVersionUrl: "$xwiki.getURL('RTWiki.Version','get')",
+                ajaxMergeUrl: "$xwiki.getURL('RTFrontend.Ajax','get')",
+                ajaxVersionUrl: "$xwiki.getURL('RTFrontend.Version','get')",
                 messages: MESSAGES
             },
             websocketURL: WEBSOCKET_URL,
