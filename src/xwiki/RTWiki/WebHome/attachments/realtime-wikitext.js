@@ -57,7 +57,7 @@ define([
         var $textArea = $('#content');
 
         var channel = docKeys.rtwiki;
-        var eventsChannel = docKeys.events;
+        var eventsChannel = docKeys.events_rtwiki;
 
         // TOOLBAR style
         var TOOLBAR_CLS = Toolbar.TOOLBAR_CLS;
