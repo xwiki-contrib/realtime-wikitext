@@ -1,6 +1,6 @@
 define([
     'RTWiki_ErrorBox',
-    'RTWiki_toolbar',
+    'RTFrontend_toolbar',
     'RTFrontend_realtime_input',
     'RTFrontend_cursor',
     'RTFrontend_json_ot',
@@ -9,9 +9,10 @@ define([
     'RTFrontend_text_patcher',
     'RTFrontend_interface',
     'RTFrontend_saver',
+    'RTFrontend_chainpad',
     'RTFrontend_diffDOM',
     'jquery'
-], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver) {
+], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver, ChainPad) {
     var $ = window.jQuery;
     var DiffDom = window.diffDOM;
 
@@ -38,19 +39,49 @@ define([
 
     window.Toolbar = Toolbar;
 
-    /** Key in the localStore which indicates realtime activity should be disallowed. */
-    var LOCALSTORAGE_DISALLOW = 'rtwysiwyg-disallow';
+    var module = window.REALTIME_MODULE = {};
 
-    var module = window.REALTIME_MODULE = {
+    var main = module.main = function (editorConfig, docKeys) {
 
-    };
+        var WebsocketURL = editorConfig.WebsocketURL;
+        var userName = editorConfig.userName;
+        var DEMO_MODE = editorConfig.DEMO_MODE;
+        var language = editorConfig.language;
+        var saverConfig = editorConfig.saverConfig || {};
+        var Messages = saverConfig.messages || {};
 
-    var main = module.main = function (WebsocketURL, userName, Messages, channel, DEMO_MODE, language, saverConfig) {
+        /** Key in the localStore which indicates realtime activity should be disallowed. */
+        var LOCALSTORAGE_DISALLOW = editorConfig.LOCALSTORAGE_DISALLOW;
 
         var $contentInner = $('#xwikieditcontentinner');
         var $textArea = $('#content');
 
-        var key = '';
+        var channel = docKeys.rtwiki;
+        var eventsChannel = docKeys.events;
+
+        // TOOLBAR style
+        var TOOLBAR_CLS = Toolbar.TOOLBAR_CLS;
+        var toolbar_style = [
+            '<style>',
+            '.' + TOOLBAR_CLS + ' {',
+            '    width: 100%;',
+            '    color: #666;',
+            '    font-weight: bold;',
+            '    background-color: #f0f0ee;',
+            '    border: 0, none;',
+            '    height: 24px;',
+            '    float: left;',
+            '}',
+            '.' + TOOLBAR_CLS + ' div {',
+            '    padding: 0 10px 0 5px;',
+            '    height: 1.5em;',
+            '    background: #f0f0ee;',
+            '    line-height: 25px;',
+            '    height: 24px;',
+            '}',
+            '</style>'
+        ];
+        // END TOOLBAR style
 
         // DISALLOW REALTIME
         var realtimeAllowed = function (bool) {
@@ -165,9 +196,6 @@ define([
                 // the channel we will communicate over
                 channel: channel,
 
-                // our encryption key
-                cryptKey: key,
-
                 // method which allows us to get the id of the user
                 setMyID: setMyID,
 
@@ -218,7 +246,7 @@ define([
                     userData: userList
                     // changeNameID: 'cryptpad-changeName'
                 };
-                toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config);
+                toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config, toolbar_style);
 
                 // this function displays a message notifying users that there was a merge
                 Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
@@ -235,7 +263,7 @@ define([
                   getTextValue: function() { return $textArea.val(); },
                   messages: saverConfig.messages
                 }
-                Saver.create(WebsocketURL, channel+"events", info.realtime, textConfig, DEMO_MODE);
+                Saver.create(info.network, eventsChannel, info.realtime, textConfig, DEMO_MODE);
             };
 
             var onReady = realtimeOptions.onReady = function (info) {
