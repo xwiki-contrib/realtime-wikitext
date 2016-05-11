@@ -84,24 +84,10 @@ define([
         // END TOOLBAR style
 
         // DISALLOW REALTIME
-        var realtimeAllowed = function (bool) {
-            if (typeof bool === 'undefined') {
-                var disallow = localStorage.getItem(LOCALSTORAGE_DISALLOW);
-                if (disallow) {
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
-                localStorage.setItem(LOCALSTORAGE_DISALLOW, bool? '' : 1);
-                return bool;
-            }
-        };
         var uid = Interface.uid;
-
         var allowRealtimeCbId = uid();
-
-        var checked = (realtimeAllowed()? 'checked="checked"' : '');
+        Interface.setLocalStorageDisallow(LOCALSTORAGE_DISALLOW);
+        var checked = (Interface.realtimeAllowed()? 'checked="checked"' : '');
         
         Interface.createAllowRealtimeCheckbox(allowRealtimeCbId, checked, Messages.allowRealtime);
         // hide the toggle for autosaving while in realtime because it
@@ -109,33 +95,29 @@ define([
         Interface.setAutosaveHiddenState(true);
 
         var $disallowButton = $('#' + allowRealtimeCbId);
-
         var disallowClick = function () {
             var checked = $disallowButton[0].checked;
             //console.log("Value of 'allow realtime collaboration' is %s", checked);
             if (checked || DEMO_MODE) {
-                realtimeAllowed(true);
+                Interface.realtimeAllowed(true);
                 // TODO : join the RT session without reloading the page?
                 window.location.reload();
             } else {
-                realtimeAllowed(false);
+                Interface.realtimeAllowed(false);
                 module.abortRealtime();
             }
         };
-
         $disallowButton.on('change', disallowClick);
 
-        if (!realtimeAllowed()) {
+        if (!Interface.realtimeAllowed()) {
             console.log("Realtime is disallowed. Quitting");
             return;
         }
-        // DISALLOW REALTIME END
+        // END DISALLOW REALTIME
 
         // configure Saver with the merge URL and language settings
         saverConfig.ErrorBox = ErrorBox;
         Saver.configure(saverConfig, language);
-
-        var $editButtons = $('.buttons');
 
         console.log("Creating realtime toggle");
 

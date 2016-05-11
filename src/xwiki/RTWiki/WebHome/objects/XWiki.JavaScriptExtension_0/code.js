@@ -36,7 +36,7 @@ require([path], function(Loader) {
     if (lock) {
         // found a lock link : check active sessions
         Loader.checkSessions();
-    } else if ((!realtimeDisallowed() && window.XWiki.editor === 'wiki') || config.DEMO_MODE) {
+    } else if (window.XWiki.editor === 'wiki' || config.DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         Loader.getKeys(['rtwiki', 'events_rtwiki'], function(keys) {
             launchRealtime(config, keys);
