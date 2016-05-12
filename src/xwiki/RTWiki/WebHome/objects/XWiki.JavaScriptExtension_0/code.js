@@ -1,8 +1,11 @@
-var path = "$xwiki.getURL('RTFrontend.LoadEditors','jsx')" + '?minify=false';
+var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
+DEMO_MODE = (DEMO_MODE === true || DEMO_MODE === "true") ? true : false;
+var path = "$xwiki.getURL('RTFrontend.LoadEditors','jsx')" + '?minify=false&demoMode='+DEMO_MODE;
 require([path], function(Loader) {
     // VELOCITY
+    #set ($document = $xwiki.getDocument('RTWiki.WebHome'))
     var PATHS = {
-        RTWiki_realtime_netflux: "$doc.getAttachmentURL('realtime-wikitext.js')",
+        RTWiki_WebHome_realtime_netflux: "$document.getAttachmentURL('realtime-wikitext.js')",
         RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
     };
     // END_VELOCITY
@@ -12,7 +15,7 @@ require([path], function(Loader) {
 
 
     var launchRealtime = function (config, keys) {
-        require(['jquery', 'RTWiki_realtime_netflux'], function ($, RTWiki) {
+        require(['jquery', 'RTWiki_WebHome_realtime_netflux'], function ($, RTWiki) {
             if (RTWiki && RTWiki.main) {
                 RTWiki.main(config, keys);
             } else {

@@ -230,22 +230,24 @@ define([
                 };
                 toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config, toolbar_style);
 
-                // this function displays a message notifying users that there was a merge
-                Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
-                    .find('.rtwiki-toolbar-rightside'),
-                    saverConfig.messages);
-                Saver.setLastSavedContent($textArea.val());
-                var textConfig = {
-                  formId: "edit", // Id of the wiki page form
-                  isHTML: false, // If text content is HTML (Wysiwyg), it has to be converted before the merge
-                  setTextValue: function(newText, callback) {
-                      $textArea.val(newText);
-                      callback();
-                  },
-                  getTextValue: function() { return $textArea.val(); },
-                  messages: saverConfig.messages
+                if(!DEMO_MODE) {
+                    // this function displays a message notifying users that there was a merge
+                    Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
+                        .find('.rtwiki-toolbar-rightside'),
+                        saverConfig.messages);
+                    Saver.setLastSavedContent($textArea.val());
+                    var textConfig = {
+                      formId: "edit", // Id of the wiki page form
+                      isHTML: false, // If text content is HTML (Wysiwyg), it has to be converted before the merge
+                      setTextValue: function(newText, callback) {
+                          $textArea.val(newText);
+                          callback();
+                      },
+                      getTextValue: function() { return $textArea.val(); },
+                      messages: saverConfig.messages
+                    }
+                    Saver.create(info.network, eventsChannel, info.realtime, textConfig, DEMO_MODE);
                 }
-                Saver.create(info.network, eventsChannel, info.realtime, textConfig, DEMO_MODE);
             };
 
             var onReady = realtimeOptions.onReady = function (info) {
