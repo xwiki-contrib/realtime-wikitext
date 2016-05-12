@@ -1,4 +1,4 @@
 XWikiDoc(function (doc, XWiki) {
-    doc.setTitle("Realtime WYSIWYG Error Handler");
+    doc.setTitle("Realtime Plain Text Editor");
     doc.setHidden(true);
 });
