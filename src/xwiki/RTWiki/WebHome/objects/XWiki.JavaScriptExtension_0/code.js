@@ -6,7 +6,6 @@ require([path], function(Loader) {
     #set ($document = $xwiki.getDocument('RTWiki.WebHome'))
     var PATHS = {
         RTWiki_WebHome_realtime_netflux: "$document.getAttachmentURL('realtime-wikitext.js')",
-        RTWiki_ErrorBox: "$xwiki.getURL('RTWiki.ErrorBox','jsx')" + '?minify=false',
     };
     // END_VELOCITY
 

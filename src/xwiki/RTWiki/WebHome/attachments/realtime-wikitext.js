@@ -1,5 +1,4 @@
 define([
-    'RTWiki_ErrorBox',
     'RTFrontend_toolbar',
     'RTFrontend_realtime_input',
     'RTFrontend_cursor',
@@ -119,8 +118,7 @@ define([
         // END DISALLOW REALTIME
 
         // configure Saver with the merge URL and language settings
-        saverConfig.ErrorBox = ErrorBox;
-        Saver.configure(saverConfig, language);
+        Saver.configure(saverConfig);
 
         console.log("Creating realtime toggle");
 
