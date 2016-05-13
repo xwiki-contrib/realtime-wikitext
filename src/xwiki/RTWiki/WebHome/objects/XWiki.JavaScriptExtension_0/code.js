@@ -41,7 +41,7 @@ require([path], function(Loader) {
         Loader.checkSessions();
     } else if (window.XWiki.editor === 'wiki' || config.DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
-        Loader.getKeys(['rtwiki', 'events_rtwiki'], function(keys) {
+        Loader.getKeys(['rtwiki', 'events'], function(keys) {
             launchRealtime(config, keys);
         });
     }

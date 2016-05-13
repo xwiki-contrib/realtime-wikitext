@@ -12,7 +12,7 @@ define([
     'RTFrontend_chainpad',
     'RTFrontend_diffDOM',
     'jquery'
-], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver, ChainPad) {
+], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver, Chainpad) {
     var $ = window.jQuery;
     var DiffDom = window.diffDOM;
 
@@ -48,6 +48,9 @@ define([
         var DEMO_MODE = editorConfig.DEMO_MODE;
         var language = editorConfig.language;
         var saverConfig = editorConfig.saverConfig || {};
+        saverConfig.chainpad = Chainpad;
+        saverConfig.editorType = 'rtwiki';
+        saverConfig.language = language;
         var Messages = saverConfig.messages || {};
 
         /** Key in the localStore which indicates realtime activity should be disallowed. */
@@ -57,7 +60,7 @@ define([
         var $textArea = $('#content');
 
         var channel = docKeys.rtwiki;
-        var eventsChannel = docKeys.events_rtwiki;
+        var eventsChannel = docKeys.events;
 
         // TOOLBAR style
         var TOOLBAR_CLS = Toolbar.TOOLBAR_CLS;
@@ -238,7 +241,6 @@ define([
                     Saver.setLastSavedContent($textArea.val());
                     var textConfig = {
                       formId: "edit", // Id of the wiki page form
-                      isHTML: false, // If text content is HTML (Wysiwyg), it has to be converted before the merge
                       setTextValue: function(newText, callback) {
                           $textArea.val(newText);
                           callback();
