@@ -1,7 +1,8 @@
 var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
 DEMO_MODE = (DEMO_MODE === true || DEMO_MODE === "true") ? true : false;
 var path = "$xwiki.getURL('RTFrontend.LoadEditors','jsx')" + '?minify=false&demoMode='+DEMO_MODE;
-require([path], function(Loader) {
+var pathErrorBox = "$xwiki.getURL('RTFrontend.ErrorBox','jsx')" + '?';
+require([path, pathErrorBox], function(Loader, ErrorBox) {
     // VELOCITY
     #set ($document = $xwiki.getDocument('RTWiki.WebHome'))
     var PATHS = {
@@ -52,6 +53,7 @@ require([path], function(Loader) {
                     console.log("Join that realtime editor if you want to edit this document");
                 }
                 else {
+                    ErrorBox.show('unavailable');
                     console.error("You are not allowed to create a new realtime session for that document.");
                 }
             }

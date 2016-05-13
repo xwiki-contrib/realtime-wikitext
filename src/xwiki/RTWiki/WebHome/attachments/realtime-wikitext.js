@@ -1,4 +1,5 @@
 define([
+    'RTFrontend_errorbox',
     'RTFrontend_toolbar',
     'RTFrontend_realtime_input',
     'RTFrontend_cursor',
@@ -280,6 +281,7 @@ define([
                 // TODO inform them that the session was torn down
                 toolbar.failed();
                 toolbar.toolbar.remove();
+                ErrorBox.show('disconnected');
             };
 
             var onLocal = realtimeOptions.onLocal = function () {
