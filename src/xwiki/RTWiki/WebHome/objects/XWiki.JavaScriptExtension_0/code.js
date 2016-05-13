@@ -42,7 +42,20 @@ require([path], function(Loader) {
     } else if (window.XWiki.editor === 'wiki' || config.DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         Loader.getKeys(['rtwiki', 'events'], function(keys) {
-            launchRealtime(config, keys);
+            if(keys.rtwiki && keys.events) {
+                launchRealtime(config, keys);
+            }
+            else {
+                var type = (Object.keys(keys).length === 1) ? Object.keys(keys)[0] : null;
+                if(type) {
+                    Loader.displayModal(type);
+                    console.error("You are not allowed to create a new realtime session for that document. Active session : "+Object.keys(keys));
+                    console.log("Join that realtime editor if you want to edit this document");
+                }
+                else {
+                    console.error("You are not allowed to create a new realtime session for that document.");
+                }
+            }
         });
     }
 });
