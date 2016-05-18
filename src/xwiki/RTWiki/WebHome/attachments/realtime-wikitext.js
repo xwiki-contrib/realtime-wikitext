@@ -200,14 +200,8 @@ define([
                 return hjson;
             }
 
-            var onRemote = realtimeOptions.onRemote = function (info) {
-                if (initializing) { return; }
-
+            var setValueWithCursor = function (newValue) {
                 var oldValue = canonicalize($textArea.val());
-
-                var shjson = info.realtime.getUserDoc();
-                var hjson = updateUserList(shjson);
-                var newValue = hjson.content || "";
 
                 var op = TextPatcher.diff(oldValue, newValue);
 
@@ -220,6 +214,15 @@ define([
 
                 elem.selectionStart = selects[0];
                 elem.selectionEnd = selects[1];
+            };
+
+            var onRemote = realtimeOptions.onRemote = function (info) {
+                if (initializing) { return; }
+
+                var shjson = info.realtime.getUserDoc();
+                var hjson = updateUserList(shjson);
+                var newValue = hjson.content || "";
+                setValueWithCursor(newValue);
             };
 
             var onInit = realtimeOptions.onInit = function (info) {
@@ -241,7 +244,7 @@ define([
                     var textConfig = {
                       formId: "edit", // Id of the wiki page form
                       setTextValue: function(newText, callback) {
-                          $textArea.val(newText);
+                          setValueWithCursor(newText);
                           callback();
                       },
                       getTextValue: function() { return $textArea.val(); },

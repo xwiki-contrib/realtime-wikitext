@@ -30,18 +30,15 @@ require([path, pathErrorBox], function(Loader, ErrorBox) {
     };
     var lock = getDocLock();
 
-    var config = Loader.getConfig();
-
-    var realtimeDisallowed = function () {
-        return localStorage.getItem(config.LOCALSTORAGE_DISALLOW)?  true: false;
-    };
 
     if (lock) {
         // found a lock link : check active sessions
         Loader.checkSessions();
-    } else if (window.XWiki.editor === 'wiki' || config.DEMO_MODE) {
+    } else if (window.XWiki.editor === 'wiki' || DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         Loader.getKeys(['rtwiki', 'events'], function(keys) {
+            var config = Loader.getConfig();
+
             if(keys.rtwiki && keys.events) {
                 launchRealtime(config, keys);
             }
