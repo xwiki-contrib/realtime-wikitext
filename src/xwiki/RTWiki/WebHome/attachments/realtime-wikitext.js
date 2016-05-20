@@ -238,7 +238,7 @@ define([
                 if(!DEMO_MODE) {
                     // this function displays a message notifying users that there was a merge
                     Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
-                        .find('.rtwiki-toolbar-rightside'),
+                        .find('.rt-toolbar-rightside'),
                         saverConfig.messages);
                     Saver.setLastSavedContent($textArea.val());
                     var textConfig = {
