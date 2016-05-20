@@ -30,10 +30,15 @@ require([path, pathErrorBox], function(Loader, ErrorBox) {
     };
     var lock = getDocLock();
 
+    var info = {
+        type: 'rtwiki',
+        href: '&editor=wiki&force=1',
+        name: "Wiki"
+    };
 
     if (lock) {
         // found a lock link : check active sessions
-        Loader.checkSessions();
+        Loader.checkSessions(info);
     } else if (window.XWiki.editor === 'wiki' || DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         var config = Loader.getConfig();
@@ -55,7 +60,7 @@ require([path, pathErrorBox], function(Loader, ErrorBox) {
             else {
                 var type = (Object.keys(keys).length === 1) ? Object.keys(keys)[0] : null;
                 if(type) {
-                    Loader.displayModal(type);
+                    Loader.displayModal(type, info);
                     console.error("You are not allowed to create a new realtime session for that document. Active session : "+Object.keys(keys));
                     console.log("Join that realtime editor if you want to edit this document");
                 }
