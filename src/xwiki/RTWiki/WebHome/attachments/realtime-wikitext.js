@@ -303,8 +303,6 @@ define([
                 var shjson = stringify(obj);
                 module.patchText(shjson);
 
-                Saver.setLocalEditFlag(true);
-
                 if (module.realtime.getUserDoc() !== shjson) {
                     console.error("realtime.getUserDoc() !== shjson");
                     module.patchText(shjson, true);
@@ -319,7 +317,10 @@ define([
                 onAbort();
             };
 
-            $textArea.on('change keyup', onLocal);
+            $textArea.on('change keyup', function() {
+                Saver.setLocalEditFlag(true);
+                onLocal();
+            });
         };
 
         whenReady();
