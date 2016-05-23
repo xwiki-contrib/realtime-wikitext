@@ -2,7 +2,7 @@ var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
 DEMO_MODE = (DEMO_MODE === true || DEMO_MODE === "true") ? true : false;
 var path = "$xwiki.getURL('RTFrontend.LoadEditors','jsx')" + '?minify=false&demoMode='+DEMO_MODE;
 var pathErrorBox = "$xwiki.getURL('RTFrontend.ErrorBox','jsx')" + '?';
-require([path, pathErrorBox], function(Loader, ErrorBox) {
+require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
     // VELOCITY
     #set ($document = $xwiki.getDocument('RTWiki.WebHome'))
     var PATHS = {
@@ -24,16 +24,52 @@ require([path, pathErrorBox], function(Loader, ErrorBox) {
         });
     };
 
-    var getDocLock = function () {
-        var force = document.querySelectorAll('a[href*="force=1"][href*="/edit/"]');
-        return force.length? force[0] : false;
+    var getWikiLock = function () {
+        var force = document.querySelectorAll('a[href*="editor=wiki"][href*="force=1"][href*="/edit/"]');
+        return force.length? true : false;
     };
-    var lock = getDocLock();
+
+    var lock = Loader.getDocLock();
+    var wikiLock = getWikiLock();
 
     var info = {
         type: 'rtwiki',
         href: '&editor=wiki&force=1',
         name: "Wiki"
+    };
+
+    var getKeyData = function(config) {
+        return [
+            {doc: config.reference, mod: config.language+'/events', editor: "1.0"},
+            {doc: config.reference, mod: config.language+'/content',editor: "rtwiki"}
+        ];
+    };
+
+    var parseKeyData = function(config, keysResultDoc) {
+        var keys = {};
+        var keysResult = keysResultDoc[config.reference];
+        if (!keysResult) { console.error("Unexpected error with the document keys"); return keys; }
+
+        var keysResultContent = keysResult[config.language+'/content'];
+        if (!keysResultContent) { console.error("Missing content keys in the document keys"); return keys; }
+
+        var keysResultEvents = keysResult[config.language+'/events'];
+        if (!keysResultEvents) { console.error("Missing event keys in the document keys"); return keys; }
+
+        if (keysResultContent.rtwiki && keysResultEvents["1.0"]) {
+            keys.rtwiki = keysResultContent.rtwiki.key;
+            keys.rtwiki_users = keysResultContent.rtwiki.users;
+            keys.events = keysResultEvents["1.0"].key;
+        }
+        else { console.error("Missing mandatory RTWiki key in the document keys"); return keys; }
+
+        var activeKeys = keys.active = {};
+        for (var key in keysResultContent) {
+            if (key !== "rtwiki" && keysResultContent[key].users > 0) {
+                activeKeys[key] = keysResultContent[key];
+            }
+        }
+        return keys;
     };
 
     if (lock) {
@@ -42,33 +78,50 @@ require([path, pathErrorBox], function(Loader, ErrorBox) {
     } else if (window.XWiki.editor === 'wiki' || DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         var config = Loader.getConfig();
-        var keysData = [
-            {doc: config.reference, mod: config.language+'/events', editor: "1.0"},
-            {doc: config.reference, mod: config.language+'/content',editor: "rtwiki"}
-        ];
+        var keysData = getKeyData(config);
         Loader.getKeys(keysData, function(keysResultDoc) {
-            var keys = {};
-            var keysResult = keysResultDoc[config.reference];
-            if(keysResult[config.language+'/events'] && keysResult[config.language+'/events']["1.0"] &&
-               keysResult[config.language+'/content'] && keysResult[config.language+'/content']["rtwiki"]) {
-                keys.rtwiki = keysResult[config.language+'/content']["rtwiki"].key;
-                keys.events = keysResult[config.language+'/events']["1.0"].key;
+            var keys = parseKeyData(config, keysResultDoc);
+            if(!keys.rtwiki || !keys.events) {
+                ErrorBox.show('unavailable');
+                console.error("You are not allowed to create a new realtime session for that document.");
             }
-            if(keys.rtwiki && keys.events) {
+            if (Object.keys(keys.active).length > 0) {
+                if (keys.rtwiki_users > 0 || Loader.isForced) {
+                    launchRealtime(config, keys);
+                } else {
+                    var callback = function() {
+                        launchRealtime(config, keys);
+                    };
+                    console.log("Join the existing realtime session or create a new one");
+                    Loader.displayModal("rtwiki", Object.keys(keys.active), callback, info);
+                }
+            } else {
                 launchRealtime(config, keys);
-            }
-            else {
-                var type = (Object.keys(keys).length === 1) ? Object.keys(keys)[0] : null;
-                if(type) {
-                    Loader.displayModal(type, info);
-                    console.error("You are not allowed to create a new realtime session for that document. Active session : "+Object.keys(keys));
-                    console.log("Join that realtime editor if you want to edit this document");
-                }
-                else {
-                    ErrorBox.show('unavailable');
-                    console.error("You are not allowed to create a new realtime session for that document.");
-                }
             }
         });
     }
+
+    var displayButtonModal = function() {
+        if ($('.realtime-button-rtwiki').length) {
+            var button = new Element('button', {'class': 'btn btn-success'});
+            var br =  new Element('br');
+            button.insert(Loader.messages.redirectDialog_join.replace(/\{0\}/g, "Wiki"));
+            $('.realtime-button-rtwiki').prepend(button);
+            $('.realtime-button-rtwysiwyg').prepend(br);
+            $(button).on('click', function() {
+                window.location.href = Loader.getEditorURL(window.location.href, info);
+            });
+        } else if(lock && wikiLock) {
+            var button = new Element('button', {'class': 'btn btn-primary'});
+            var br =  new Element('br');
+            button.insert(Loader.messages.redirectDialog_create.replace(/\{0\}/g, "Wiki"));
+            $('.realtime-buttons').append(br);
+            $('.realtime-buttons').append(button);
+            $(button).on('click', function() {
+                window.location.href = Loader.getEditorURL(window.location.href, info);
+            });
+        }
+    };
+    displayButtonModal();
+    $(document).on('insertButton', displayButtonModal);
 });
