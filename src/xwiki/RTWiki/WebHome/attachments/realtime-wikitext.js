@@ -250,7 +250,7 @@ define([
                       getTextValue: function() { return $textArea.val(); },
                       messages: saverConfig.messages
                     }
-                    Saver.create(info.network, eventsChannel, info.realtime, textConfig, DEMO_MODE);
+                    Saver.create(info.network, eventsChannel, info.realtime, textConfig, userList, DEMO_MODE);
                 }
             };
 
