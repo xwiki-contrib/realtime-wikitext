@@ -50,6 +50,9 @@ define([
         var saverConfig = editorConfig.saverConfig || {};
         saverConfig.chainpad = Chainpad;
         saverConfig.editorType = 'rtwiki';
+        saverConfig.editorName = 'Wiki';
+        saverConfig.isHTML = false;
+        saverConfig.mergeContent = true;
         var Messages = saverConfig.messages || {};
 
         /** Key in the localStore which indicates realtime activity should be disallowed. */
@@ -241,16 +244,22 @@ define([
                         .find('.rt-toolbar-rightside'),
                         saverConfig.messages);
                     Saver.setLastSavedContent($textArea.val());
-                    var textConfig = {
+                    var saverCreateConfig = {
                       formId: "edit", // Id of the wiki page form
-                      setTextValue: function(newText, callback) {
+                      setTextValue: function(newText, toConvert, callback) {
                           setValueWithCursor(newText);
                           callback();
+                          onLocal();
                       },
                       getTextValue: function() { return $textArea.val(); },
-                      messages: saverConfig.messages
+                      realtime: info.realtime,
+                      userList: info.userList,
+                      userName: userName,
+                      network: info.network,
+                      channel: eventsChannel,
+                      demoMode: DEMO_MODE
                     }
-                    Saver.create(info.network, eventsChannel, info.realtime, textConfig, userList, DEMO_MODE);
+                    Saver.create(saverCreateConfig);
                 }
             };
 
@@ -318,6 +327,7 @@ define([
             };
 
             $textArea.on('change keyup', function() {
+                Saver.destroyDialog();
                 Saver.setLocalEditFlag(true);
                 onLocal();
             });

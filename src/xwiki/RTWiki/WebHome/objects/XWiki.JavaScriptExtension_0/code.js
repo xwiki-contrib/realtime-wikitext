@@ -1,8 +1,12 @@
+(function() {
 var DEMO_MODE = "$!request.getParameter('demoMode')" || false;
 DEMO_MODE = (DEMO_MODE === true || DEMO_MODE === "true") ? true : false;
+// Not in edit mode?
+if (!DEMO_MODE && window.XWiki.contextaction !== 'edit') { return false; }
 var path = "$xwiki.getURL('RTFrontend.LoadEditors','jsx')" + '?minify=false&demoMode='+DEMO_MODE;
 var pathErrorBox = "$xwiki.getURL('RTFrontend.ErrorBox','jsx')" + '?';
 require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
+    if(!Loader) { return; }
     // VELOCITY
     #set ($document = $xwiki.getDocument('RTWiki.WebHome'))
     var PATHS = {
@@ -107,7 +111,7 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
             var br =  new Element('br');
             button.insert(Loader.messages.redirectDialog_join.replace(/\{0\}/g, "Wiki"));
             $('.realtime-button-rtwiki').prepend(button);
-            $('.realtime-button-rtwysiwyg').prepend(br);
+            $('.realtime-button-rtwiki').prepend(br);
             $(button).on('click', function() {
                 window.location.href = Loader.getEditorURL(window.location.href, info);
             });
@@ -125,3 +129,4 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
     displayButtonModal();
     $(document).on('insertButton', displayButtonModal);
 });
+})();
