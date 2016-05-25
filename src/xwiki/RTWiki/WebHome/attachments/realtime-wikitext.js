@@ -219,25 +219,7 @@ define([
                 elem.selectionEnd = selects[1];
             };
 
-            var onRemote = realtimeOptions.onRemote = function (info) {
-                if (initializing) { return; }
-
-                var shjson = info.realtime.getUserDoc();
-                var hjson = updateUserList(shjson);
-                var newValue = hjson.content || "";
-                setValueWithCursor(newValue);
-            };
-
-            var onInit = realtimeOptions.onInit = function (info) {
-                // Create the toolbar
-                var $bar = $contentInner;
-                toolbarList = info.userList;
-                var config = {
-                    userData: userList
-                    // changeNameID: 'cryptpad-changeName'
-                };
-                toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config, toolbar_style);
-
+            var createSaver = function (info) {
                 if(!DEMO_MODE) {
                     // this function displays a message notifying users that there was a merge
                     Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
@@ -266,6 +248,26 @@ define([
                 }
             };
 
+            var onRemote = realtimeOptions.onRemote = function (info) {
+                if (initializing) { return; }
+
+                var shjson = info.realtime.getUserDoc();
+                var hjson = updateUserList(shjson);
+                var newValue = hjson.content || "";
+                setValueWithCursor(newValue);
+            };
+
+            var onInit = realtimeOptions.onInit = function (info) {
+                // Create the toolbar
+                var $bar = $contentInner;
+                toolbarList = info.userList;
+                var config = {
+                    userData: userList
+                    // changeNameID: 'cryptpad-changeName'
+                };
+                toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config, toolbar_style);
+            };
+
             var onReady = realtimeOptions.onReady = function (info) {
                 var realtime = module.realtime = info.realtime;
                 module.leaveChannel = info.leave;
@@ -289,6 +291,7 @@ define([
                 setEditable(true);
 
                 onLocal();
+                createSaver(info);
             };
 
             var onAbort = realtimeOptions.onAbort = function (info) {
@@ -326,6 +329,7 @@ define([
                 module.realtime.abort();
                 module.leaveChannel();
                 module.aborted = true;
+                Saver.stop();
                 onAbort();
             };
 
