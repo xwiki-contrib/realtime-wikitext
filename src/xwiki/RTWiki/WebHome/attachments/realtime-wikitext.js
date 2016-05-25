@@ -251,6 +251,9 @@ define([
                           callback();
                           onLocal();
                       },
+                      getSaveValue: function() {
+                          return Object.toQueryString({ content: $textArea.val() });
+                      },
                       getTextValue: function() { return $textArea.val(); },
                       realtime: info.realtime,
                       userList: info.userList,
