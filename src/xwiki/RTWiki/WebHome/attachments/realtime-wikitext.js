@@ -19,7 +19,7 @@ define([
     /* REALTIME_DEBUG exposes a 'version' attribute.
         this must be updated with every release */
     var REALTIME_DEBUG = window.REALTIME_DEBUG = {
-        version: '1.42',
+        version: '1.19',
         local: {},
         remote: {}
     };
