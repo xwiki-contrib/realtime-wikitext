@@ -45,6 +45,7 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
     var getKeyData = function(config) {
         return [
             {doc: config.reference, mod: config.language+'/events', editor: "1.0"},
+            {doc: config.reference, mod: config.language+'/events', editor: "userdata"},
             {doc: config.reference, mod: config.language+'/content',editor: "rtwiki"}
         ];
     };
@@ -64,6 +65,7 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
             keys.rtwiki = keysResultContent.rtwiki.key;
             keys.rtwiki_users = keysResultContent.rtwiki.users;
             keys.events = keysResultEvents["1.0"].key;
+            keys.userdata = keysResultEvents["userdata"].key;
         }
         else { console.error("Missing mandatory RTWiki key in the document keys"); return keys; }
 

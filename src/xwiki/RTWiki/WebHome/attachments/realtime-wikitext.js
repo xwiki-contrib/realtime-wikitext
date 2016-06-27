@@ -2,19 +2,18 @@ define([
     'RTFrontend_errorbox',
     'RTFrontend_toolbar',
     'RTFrontend_realtime_input',
-    'RTFrontend_cursor',
     'RTFrontend_json_ot',
+    'RTFrontend_userdata',
     'RTFrontend_tests',
     'json.sortify',
     'RTFrontend_text_patcher',
     'RTFrontend_interface',
     'RTFrontend_saver',
     'RTFrontend_chainpad',
-    'RTFrontend_diffDOM',
+    'RTFrontend_crypto',
     'jquery'
-], function (ErrorBox, Toolbar, realtimeInput, Cursor, JsonOT, TypingTest, JSONSortify, TextPatcher, Interface, Saver, Chainpad) {
+], function (ErrorBox, Toolbar, realtimeInput, JsonOT, UserData, TypingTest, JSONSortify, TextPatcher, Interface, Saver, Chainpad, Crypto) {
     var $ = window.jQuery;
-    var DiffDom = window.diffDOM;
 
     /* REALTIME_DEBUG exposes a 'version' attribute.
         this must be updated with every release */
@@ -22,17 +21,6 @@ define([
         version: '1.19',
         local: {},
         remote: {}
-    };
-
-    // Create a fake "Crypto" object which will be passed to realtime-input
-    var Crypto = {
-        encrypt : function(msg, key) { return msg; },
-        decrypt : function(msg, key) { return msg; },
-        parseKey : function(key) { return {cryptKey : ''}; }
-    }
-
-    var stringify = function (obj) {
-        return JSONSortify(obj);
     };
 
     var canonicalize = function(text) { return text.replace(/\r\n/g, '\n'); };
@@ -47,6 +35,7 @@ define([
         var userName = editorConfig.userName;
         var DEMO_MODE = editorConfig.DEMO_MODE;
         var language = editorConfig.language;
+        var userAvatar = editorConfig.userAvatarURL;
         var saverConfig = editorConfig.saverConfig || {};
         saverConfig.chainpad = Chainpad;
         saverConfig.editorType = 'rtwiki';
@@ -63,6 +52,7 @@ define([
 
         var channel = docKeys.rtwiki;
         var eventsChannel = docKeys.events;
+        var userdataChannel = docKeys.userdata;
 
         // TOOLBAR style
         var TOOLBAR_CLS = Toolbar.TOOLBAR_CLS;
@@ -93,7 +83,7 @@ define([
         var allowRealtimeCbId = uid();
         Interface.setLocalStorageDisallow(LOCALSTORAGE_DISALLOW);
         var checked = (Interface.realtimeAllowed()? 'checked="checked"' : '');
-        
+
         Interface.createAllowRealtimeCheckbox(allowRealtimeCbId, checked, Messages.allowRealtime);
         // hide the toggle for autosaving while in realtime because it
         // conflicts with our own autosaving system
@@ -128,51 +118,116 @@ define([
 
         var whenReady = function () {
 
-            var inner = $textArea;
-            //var cursor = window.cursor = Cursor(inner);
-            var cursor = null;
+            var codemirror = ($('.CodeMirror').length && $('.CodeMirror')[0].CodeMirror) ? true : false;
+
+            var cursorToPos = function(cursor, oldText) {
+                var cLine = cursor.line;
+                var cCh = cursor.ch;
+                var pos = 0;
+                var textLines = oldText.split("\n");
+                for (var line = 0; line <= cLine; line++) {
+                    if(line < cLine) {
+                        pos += textLines[line].length+1;
+                    }
+                    else if(line === cLine) {
+                        pos += cCh;
+                    }
+                }
+                return pos;
+            };
+
+            var posToCursor = function(position, newText) {
+                var cursor = {
+                    line: 0,
+                    ch: 0
+                };
+                var textLines = newText.substr(0, position).split("\n");
+                cursor.line = textLines.length - 1;
+                cursor.ch = textLines[cursor.line].length;
+                return cursor;
+            };
+
+            // Default wiki behaviour
+            var editor = {
+                getValue : function () { return $textArea.val(); },
+                setValue : function (text) { $textArea.val(text); },
+                setReadOnly : function (bool) { $textArea.prop("disabled", bool); },
+                getCursor : function () { return $textArea[0]; }, // Should return an object obj with obj.selectionStart and obj.selectionEnd
+                setCursor : function (start, end) {
+                    $textArea.selectionStart = start;
+                    $textArea.selectionEnd = end;
+                },
+                onChange : function (handler) {
+                    $textArea.on('change keyup', handler);
+                },
+                _ : $textArea
+            };
+
+            // Wiki
+            var useCodeMirror = function() {
+                editor._ = $('.CodeMirror')[0].CodeMirror;
+                editor.getValue = function() { return editor._.getValue(); };
+                editor.setValue = function (text) {
+                    editor._.setValue(text);
+                    editor._.save();
+                };
+                editor.setReadOnly = function (bool) {
+                    editor._.setOption('readOnly', bool);
+                };
+                editor.onChange = function (handler) {
+                    editor._.off('change');
+                    editor._.on('change', handler);
+                };
+                editor.getCursor = function () {
+                    var doc = canonicalize(editor.getValue());
+                    return {
+                        selectionStart : cursorToPos(editor._.getCursor('from'), doc),
+                        selectionEnd : cursorToPos(editor._.getCursor('to'), doc)
+                    }
+                };
+                editor.setCursor = function (start, end) {
+                    var doc = canonicalize(editor.getValue());
+                    if(start === end) {
+                        editor._.setCursor(posToCursor(start, doc));
+                    }
+                    else {
+                        editor._.setSelection(posToCursor(start, doc), posToCursor(end, doc));
+                    }
+                };
+                editor.onChange(onChangeHandler);
+            };
+
+            if (codemirror) { useCodeMirror(); }
+            // Change the editor to CodeMirror if it is completely loaded after the initializaion of rtwiki
+            $('body').on('DOMNodeInserted', function(e) {
+                if ($(e.target).is('.CodeMirror')) {
+                    var enableCodeMirror = function() {
+                        if ($(e.target)[0] && $(e.target)[0].CodeMirror) {
+                            useCodeMirror();
+                        } else {
+                            setTimeout(enableCodeMirror, 100);
+                        }
+                    };
+                    enableCodeMirror();
+                }
+            });
 
             var setEditable = module.setEditable = function (bool) {
-                $textArea.prop("disabled", !bool);
+                editor.setReadOnly(!bool);
             };
 
             // don't let the user edit until the pad is ready
             setEditable(false);
 
-
             var initializing = true;
-            var userList = {}; // List of pretty name of all users (mapped with their server ID)
-            var toolbarList; // List of users still connected to the channel (server IDs)
-            var addToUserList = function(data) {
-                for (var attrname in data) { userList[attrname] = data[attrname]; }
-                if(toolbarList && typeof toolbarList.onChange === "function") {
-                    toolbarList.onChange(userList);
-                }
-            };
 
-            var myData = {};
-            var myUserName = ''; // My "pretty name"
-            var myID; // My server ID
-
-            var setMyID = function(info) {
-              myID = info.myID || null;
-              myUserName = myID;
-              myData[myID] = {
-                name: userName
-              };
-              addToUserList(myData);
-            };
-
-            var stringifyTextarea = function(text) {
-              return stringify({
-                content: text,
-                metadata: {}
-              });
-            }
+            var userData; // List of pretty name of all users (mapped with their server ID)
+            var userList; // List of users still connected to the channel (server IDs)
+            var myId; // My server ID
 
             var realtimeOptions = {
                 // provide initialstate...
-                initialState: stringifyTextarea($textArea.val()) || '{}',
+                initialState: editor.getValue() || '',
 
                 // the websocket URL
                 websocketURL: WebsocketURL,
@@ -183,40 +238,50 @@ define([
                 // the channel we will communicate over
                 channel: channel,
 
-                // method which allows us to get the id of the user
-                setMyID: setMyID,
-
                 // Crypto object to avoid loading it twice in Cryptpad
                 crypto: Crypto,
-
-                // really basic operational transform
-                transformFunction : JsonOT.validate
             };
-            var updateUserList = function(shjson) {
-                // Extract the user list (metadata) from the hyperjson
-                var hjson = (shjson === "") ? {} : JSON.parse(shjson);
-                if(hjson && hjson.metadata) {
-                  var userData = hjson.metadata;
-                  // Update the local user data
-                  addToUserList(userData);
+
+            var cursorToPos = function(cursor, oldText) {
+                var cLine = cursor.line;
+                var cCh = cursor.ch;
+                var pos = 0;
+                var textLines = oldText.split("\n");
+                for (var line = 0; line <= cLine; line++) {
+                    if(line < cLine) {
+                        pos += textLines[line].length+1;
+                    }
+                    else if(line === cLine) {
+                        pos += cCh;
+                    }
                 }
-                return hjson;
-            }
+                return pos;
+            };
+
+            var posToCursor = function(position, newText) {
+                var cursor = {
+                    line: 0,
+                    ch: 0
+                };
+                var textLines = newText.substr(0, position).split("\n");
+                cursor.line = textLines.length - 1;
+                cursor.ch = textLines[cursor.line].length;
+                return cursor;
+            };
 
             var setValueWithCursor = function (newValue) {
-                var oldValue = canonicalize($textArea.val());
+                var oldValue = canonicalize(editor.getValue());
 
                 var op = TextPatcher.diff(oldValue, newValue);
 
-                var elem = $textArea[0];
+                var oldCursor = editor.getCursor();
                 var selects = ['selectionStart', 'selectionEnd'].map(function (attr) {
-                    return TextPatcher.transformCursor(elem[attr], op);
+                    return TextPatcher.transformCursor(oldCursor[attr], op);
                 });
 
-                $textArea.val(newValue);
+                editor.setValue(newValue);
 
-                elem.selectionStart = selects[0];
-                elem.selectionEnd = selects[1];
+                editor.setCursor(selects[0], selects[1]);
             };
 
             var createSaver = function (info) {
@@ -225,7 +290,7 @@ define([
                     Saver.lastSaved.mergeMessage = Interface.createMergeMessageElement(toolbar.toolbar
                         .find('.rt-toolbar-rightside'),
                         saverConfig.messages);
-                    Saver.setLastSavedContent($textArea.val());
+                    Saver.setLastSavedContent(editor.getValue());
                     var saverCreateConfig = {
                       formId: "edit", // Id of the wiki page form
                       setTextValue: function(newText, toConvert, callback) {
@@ -234,9 +299,9 @@ define([
                           onLocal();
                       },
                       getSaveValue: function() {
-                          return Object.toQueryString({ content: $textArea.val() });
+                          return Object.toQueryString({ content: editor.getValue() });
                       },
-                      getTextValue: function() { return $textArea.val(); },
+                      getTextValue: function() { return editor.getValue(); },
                       realtime: info.realtime,
                       userList: info.userList,
                       userName: userName,
@@ -251,19 +316,16 @@ define([
             var onRemote = realtimeOptions.onRemote = function (info) {
                 if (initializing) { return; }
 
-                var shjson = info.realtime.getUserDoc();
-                var hjson = updateUserList(shjson);
-                var newValue = hjson.content || "";
+                var newValue = info.realtime.getUserDoc();
                 setValueWithCursor(newValue);
             };
 
             var onInit = realtimeOptions.onInit = function (info) {
                 // Create the toolbar
                 var $bar = $contentInner;
-                toolbarList = info.userList;
+                userList = info.userList;
                 var config = {
-                    userData: userList
-                    // changeNameID: 'cryptpad-changeName'
+                    userData: userData
                 };
                 toolbar = Toolbar.create($bar, info.myID, info.realtime, info.getLag, info.userList, config, toolbar_style);
             };
@@ -277,14 +339,22 @@ define([
                 });
 
                 var userDoc = module.realtime.getUserDoc();
-                var hjson = updateUserList(userDoc);
+                myId = info.myId;
 
-                var newDoc = "";
-                if(userDoc !== "") {
-                    newDoc = hjson.content;
-                }
+                // Update the user list to link the wiki name to the user id
+                var userdataConfig = {
+                    myId : info.myId,
+                    userName : userName,
+                    userAvatar : userAvatar,
+                    onChange : userList.onChange,
+                    crypto : Crypto,
+                    transformFunction : JsonOT.validate,
+                    editor : 'rtwiki'
+                };
 
-                $textArea.val(newDoc);
+                userData = UserData.start(info.network, userdataChannel, userdataConfig);
+
+                editor.setValue(userDoc);
 
                 console.log("Unlocking editor");
                 initializing = false;
@@ -308,14 +378,8 @@ define([
                 if (initializing) { return; }
 
                 // serialize your DOM into an object
-                var textValue = canonicalize($textArea.val());
-                var obj = {content: textValue};
+                var shjson = canonicalize(editor.getValue());
 
-                // append the userlist to the hyperjson structure
-                obj.metadata = userList;
-
-                // stringify the json and send it into chainpad
-                var shjson = stringify(obj);
                 module.patchText(shjson);
 
                 if (module.realtime.getUserDoc() !== shjson) {
@@ -333,11 +397,12 @@ define([
                 onAbort();
             };
 
-            $textArea.on('change keyup', function() {
+            var onChangeHandler = function() {
                 Saver.destroyDialog();
                 Saver.setLocalEditFlag(true);
                 onLocal();
-            });
+            };
+            editor.onChange(onChangeHandler);
         };
 
         whenReady();
