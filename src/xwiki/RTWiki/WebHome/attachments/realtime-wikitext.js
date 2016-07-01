@@ -18,7 +18,7 @@ define([
     /* REALTIME_DEBUG exposes a 'version' attribute.
         this must be updated with every release */
     var REALTIME_DEBUG = window.REALTIME_DEBUG = {
-        version: '1.19',
+        version: '1.20',
         local: {},
         remote: {}
     };
@@ -154,8 +154,8 @@ define([
                 setReadOnly : function (bool) { $textArea.prop("disabled", bool); },
                 getCursor : function () { return $textArea[0]; }, // Should return an object obj with obj.selectionStart and obj.selectionEnd
                 setCursor : function (start, end) {
-                    $textArea.selectionStart = start;
-                    $textArea.selectionEnd = end;
+                    $textArea[0].selectionStart = start;
+                    $textArea[0].selectionEnd = end;
                 },
                 onChange : function (handler) {
                     $textArea.on('change keyup', handler);
@@ -240,33 +240,6 @@ define([
 
                 // Crypto object to avoid loading it twice in Cryptpad
                 crypto: Crypto,
-            };
-
-            var cursorToPos = function(cursor, oldText) {
-                var cLine = cursor.line;
-                var cCh = cursor.ch;
-                var pos = 0;
-                var textLines = oldText.split("\n");
-                for (var line = 0; line <= cLine; line++) {
-                    if(line < cLine) {
-                        pos += textLines[line].length+1;
-                    }
-                    else if(line === cLine) {
-                        pos += cCh;
-                    }
-                }
-                return pos;
-            };
-
-            var posToCursor = function(position, newText) {
-                var cursor = {
-                    line: 0,
-                    ch: 0
-                };
-                var textLines = newText.substr(0, position).split("\n");
-                cursor.line = textLines.length - 1;
-                cursor.ch = textLines[cursor.line].length;
-                return cursor;
             };
 
             var setValueWithCursor = function (newValue) {
