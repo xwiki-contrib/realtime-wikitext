@@ -345,6 +345,7 @@ define([
                 Saver.stop();
                 toolbar.failed();
                 toolbar.toolbar.remove();
+                if (userData.leave && typeof userData.leave === "function") { userData.leave(); }
                 if($disallowButton[0].checked && !module.aborted) {
                     ErrorBox.show('disconnected');
                 }
