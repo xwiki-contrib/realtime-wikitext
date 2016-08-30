@@ -18,16 +18,6 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
     require.config({paths:PATHS});
 
 
-    var launchRealtime = function (config, keys) {
-        require(['jquery', 'RTWiki_WebHome_realtime_netflux'], function ($, RTWiki) {
-            if (RTWiki && RTWiki.main) {
-                RTWiki.main(config, keys);
-            } else {
-                console.error("Couldn't find RTWiki.main, aborting");
-            }
-        });
-    };
-
     var getWikiLock = function () {
         var force = document.querySelectorAll('a[href*="editor=wiki"][href*="force=1"][href*="/edit/"]');
         return force.length? true : false;
@@ -78,15 +68,33 @@ require([path, pathErrorBox, 'jquery'], function(Loader, ErrorBox, $) {
         return keys;
     };
 
+    var updateKeys = function (cb) {
+        var config = Loader.getConfig();
+        var keysData = getKeyData(config);
+        Loader.getKeys(keysData, function(keysResultDoc) {
+            var keys = parseKeyData(config, keysResultDoc);
+            cb(keys);
+        });
+    };
+
+    var launchRealtime = function (config, keys) {
+        require(['jquery', 'RTWiki_WebHome_realtime_netflux'], function ($, RTWiki) {
+            if (RTWiki && RTWiki.main) {
+                keys._update = updateKeys;
+                RTWiki.main(config, keys);
+            } else {
+                console.error("Couldn't find RTWiki.main, aborting");
+            }
+        });
+    };
+
     if (lock) {
         // found a lock link : check active sessions
         Loader.checkSessions(info);
     } else if (window.XWiki.editor === 'wiki' || DEMO_MODE) {
         // No lock and we are using wiki editor : start realtime
         var config = Loader.getConfig();
-        var keysData = getKeyData(config);
-        Loader.getKeys(keysData, function(keysResultDoc) {
-            var keys = parseKeyData(config, keysResultDoc);
+        updateKeys(function (keys) {
             if(!keys.rtwiki || !keys.events) {
                 ErrorBox.show('unavailable');
                 console.error("You are not allowed to create a new realtime session for that document.");

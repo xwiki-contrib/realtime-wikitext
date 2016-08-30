@@ -54,6 +54,26 @@ define([
         var eventsChannel = docKeys.events;
         var userdataChannel = docKeys.userdata;
 
+        /** Update the channels keys for reconnecting websocket */
+        var updateKeys = function (cb) {
+            docKeys._update(function (keys) {
+                var changes = [];
+                if (keys.rtwiki && keys.rtwiki !== channel) {
+                    channel = keys.rtwiki;
+                    changes.push('rtwiki');
+                }
+                if (keys.events && keys.events !== eventsChannel) {
+                    eventsChannel = keys.events;
+                    changes.push('events');
+                }
+                if (keys.userdata && keys.userdata !== userdataChannel) {
+                    userdataChannel = keys.userdata;
+                    changes.push('userdata');
+                }
+                cb(changes);
+            });
+        };
+
         // TOOLBAR style
         var TOOLBAR_CLS = Toolbar.TOOLBAR_CLS;
         var toolbar_style = [
@@ -349,6 +369,25 @@ define([
                 if($disallowButton[0].checked && !module.aborted) {
                     ErrorBox.show('disconnected');
                 }
+            };
+
+            var onConnectionChange = realtimeOptions.onConnectionChange = function (info) {
+                console.log("Connection status : "+info.state);
+                toolbar.failed();
+                if (info.state) {
+                    ErrorBox.hide();
+                    initializing = true;
+                    toolbar.reconnecting(info.myId);
+                } else {
+                    setEditable(false);
+                    ErrorBox.show('disconnected');
+                }
+            };
+
+            var beforeReconnecting = realtimeOptions.beforeReconnecting = function (callback) {
+                updateKeys(function () {
+                    callback(channel, editor.getValue());
+                });
             };
 
             var onLocal = realtimeOptions.onLocal = function () {
