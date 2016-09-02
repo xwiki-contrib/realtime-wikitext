@@ -407,7 +407,9 @@ define([
             var rti = module.realtimeInput = realtimeInput.start(realtimeOptions);
 
             var onChangeHandler = function() {
-                Saver.destroyDialog();
+                // We can't destroy the dialog here otherwise sometimes it is impossible to take an action
+                // during a merge conflict :
+                // Saver.destroyDialog();
                 Saver.setLocalEditFlag(true);
                 onLocal();
             };
