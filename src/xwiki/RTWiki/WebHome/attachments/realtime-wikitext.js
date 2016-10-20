@@ -44,6 +44,17 @@ define([
         saverConfig.mergeContent = true;
         var Messages = saverConfig.messages || {};
 
+        var $configField = $('#realtime-frontend-getconfig');
+        var parsedConfig;
+        if ($configField.length) {
+            try {
+                parsedConfig = JSON.parse($configField.html());
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        saverConfig.mergeContent = typeof parsedConfig !== "undefined" ? parseInt(parsedConfig.enableMerge) !== 0 : true;
+
         /** Key in the localStore which indicates realtime activity should be disallowed. */
         var LOCALSTORAGE_DISALLOW = editorConfig.LOCALSTORAGE_DISALLOW;
 
@@ -300,7 +311,8 @@ define([
                       userName: userName,
                       network: info.network,
                       channel: eventsChannel,
-                      demoMode: DEMO_MODE
+                      demoMode: DEMO_MODE,
+                      safeCrash: function(reason, debugLog) { module.onAbort(null, reason, debugLog); }
                     }
                     Saver.create(saverCreateConfig);
                 }
@@ -357,8 +369,9 @@ define([
                 createSaver(info);
             };
 
-            var onAbort = module.onAbort = realtimeOptions.onAbort = function () {
+            var onAbort = module.onAbort = realtimeOptions.onAbort = function (info, reason, debug) {
                 console.log("Aborting the session!");
+                var msg = reason || 'disconnected';
                 module.realtime.abort();
                 module.leaveChannel();
                 module.aborted = true;
@@ -367,7 +380,7 @@ define([
                 toolbar.toolbar.remove();
                 if (userData.leave && typeof userData.leave === "function") { userData.leave(); }
                 if($disallowButton[0].checked && !module.aborted) {
-                    ErrorBox.show('disconnected');
+                    ErrorBox.show(msg, debug);
                 }
             };
 
